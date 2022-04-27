@@ -24,6 +24,69 @@
 	
       <div class="h-entry">
 		
+			<h1><a href="https://www.brashandplucky.com/2022/04/20/fake-viewport-pbr.html">Viewport baked PBR materials</a></h1>
+		
+
+        <a href="https://www.brashandplucky.com/2022/04/20/fake-viewport-pbr.html" class="u-url"><time class="dt-published" datetime="2022-04-20 04:51:00 &#43;0200">Apr 20, 2022</time></a>
+
+        <div class="e-content">
+         	<p>The technique described here is very basic, but useful nonetheless.</p>
+
+<p>Let&rsquo;s make the following (cringy :-D) assumptions:</p>
+
+<ol>
+<li>No interactions between surfaces (<em>i.e.,</em> no GI, no occlusion, etc&hellip;).</li>
+<li>The only light source is an IBL (environment) map placed at infinity which orientation is anchored to the camera.</li>
+<li>Each surface point <em>P</em> is made of a perfectly rough white material which simply &ldquo;collects&rdquo; the light that arrives to <em>P</em> from above the hemiplane defined by <em>(P,N)</em>.</li>
+</ol>
+
+<p><img src="uploads/2022/46104cc277.png" width="600" height="147" alt="" /></p>
+
+<p>Under such assumptions a ball floating in the void looks like this image rendered in <a href="https://maverickrender.com/">Maverick Studio</a> with a procedural sphere primitive and a standard material:</p>
+
+<p><img src="uploads/2022/fa47d8b7f7.png" width="600" height="600" alt="" /></p>
+
+<p><img src="uploads/2022/6e5bed50ac.png" width="600" height="300" alt="" /></p>
+
+<p>The illumination collected by each point <em>P</em> and radiated back to the camera (+ tonemapping) happens to be, exactly, one particular pixel in the rendered ball as depicted in the hand-drawn diagram above. Note that due to the constraints set, <strong>this color depends exclusively on the normal <em>N</em> at <em>P</em> but not on <em>P</em> itself</strong>. In other words, the rendered ball effectively precomputes what any surface point <em>P</em> sees through its normal <em>N</em>.</p>
+
+<p>The goal in this post is to benefit from this knowledge in a rasterization viewport. So let&rsquo;s jump now to the world of pixel shaders. In our vertex shader, let&rsquo;s transform the object&rsquo;s normals <em>N</em> to camera space <em>Nc</em> and let&rsquo;s drop the resulting Z coordinate. <em>(Nc.x,Nc.y)</em> are the geometry normals projected to screen space. Let&rsquo;s normalize these: <em>Nc&rsquo;=normalize(Nc.x,Nc.y)</em></p>
+
+<p>Let&rsquo;s upload the ball render as a regular 2D texture and let&rsquo;s define the following UV space:</p>
+
+<p><img src="uploads/2022/4761754b1a.png" width="600" height="600" alt="" /></p>
+
+<p><em>Nc&rsquo;</em> is normalized, so the UVs generated will cover the interior of the ball only. Normals at grazing angles will be near the perimeter of the texture&rsquo;s ball.</p>
+
+<p>In our fragment shader, let&rsquo;s simply output the color found in the ball image at the UVs computed as described. Here&rsquo;s the result:</p>
+
+<p><img src="uploads/2022/c2abfa5373.gif" width="600" height="574" alt="" /></p>
+
+<p>Of course, physically-based materials are more complicated than this. In general, the amount of light received by the surface from the <em>(P,N)</em> hemiplane through each possible incoming direction and then bounced back through each possible outgoing direction depends on both directions, and also on the properties of the material. This is basically the definition of a <a href="https://en.wikipedia.org/wiki/Bidirectional_reflectance_distribution_function">BRDF</a>, BTW.</p>
+
+<p>But because we set the constraint that the lights are not moving (<em>i.e.,</em> the IBL stays fixed with respect to the camera) the incoming and outgoing directions and hence the behavior of the BRDF ends up being a function of <em>N</em> and <em>nothing</em> else. So this method still works <strong>no matter what material we render the ball with</strong> (well&hellip; excluding refractions :-D).</p>
+
+<p>Here goes another example with the same IBL but adding some specularity to the material:</p>
+
+<p><img src="uploads/2022/9be65014fb.gif" width="600" height="574" alt="" /></p>
+
+<p><img src="uploads/2022/c4514647d1.png" width="600" height="600" alt="" /></p>
+
+<p>Of course this could be pushed further with some SSAO or any other technique that approximates self-shadowing. But this is a very compact and cheap (memory/code/effort) way to display models in an easy-to-author appealing way.</p>
+
+<p>Some final notes:</p>
+
+<ul>
+<li>If you want to be accurate, the ball should be rendered with an <em>orthographic</em> camera (<em>i.e.,</em> not with a <em>perspective</em> camera).</li>
+<li>For blurry/glossy or diffuse reflections, you can get away with a low-res ball render. However, make sure that the UVs that you generate don&rsquo;t step on the antialias pixels at the boundary of the rendered ball. Otherwise the model will look b0rked at grazing angles.</li>
+<li>This technique can be extended by using 2 ball images: one with the diffuse component of the material, and another with the specular component. This way the fragment shader could modulate the diffuse part and the specular part by separate colors that could be passed as inputs to the shader. Keep in mind that this would require that the ball images and the colors are passed in linear (instead of sRGB) space and that the resulting color is sent back to sRGB.</li>
+</ul>
+
+        </div>
+      </div>
+    
+      <div class="h-entry">
+		
 			<h1><a href="https://www.brashandplucky.com/2022/04/16/im-currently-swimming.html">Trimmed NURBS</a></h1>
 		
 
@@ -35,6 +98,10 @@
 <p><img src="uploads/2022/b0526fdbcf.png" width="600" height="519" alt="" /></p>
 
 <p><img src="uploads/2022/162c080550.png" width="600" height="616" alt="" /></p>
+
+<p><strong>[EDIT]</strong> Throwing some GLSL vert/frag shaders in to the mix for normal/tangency inspection. 2 days in and this is still WIP.</p>
+
+<video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/6e97cf2bcb.mp4" width="600" height="600" poster="https://www.brashandplucky.com/uploads/2022/2fd92ed526.png" preload="none"></video>
 
         </div>
       </div>
@@ -174,7 +241,7 @@ Transport Algorithm</a></p>
 
 <p><em>Uniform 2D distribution vs. Halton series for the first 2 dimensions</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/c5fd50d371.png" width="600" height="300" alt="" /></p>
+<p><img src="uploads/2022/c5fd50d371.png" width="600" height="300" alt="" /></p>
 
 <p>To the left: 32768 points in a 512×512 image using a uniform random number generator (Mersenne Twister). To the right, the first 32768 pairs in the Halton series, using dimensions #0 and #1. Click to enlarge!</p>
 
@@ -197,7 +264,7 @@ Transport Algorithm</a></p>
 
 <p><em>The 9+1 mipmap levels in the 512×512 Lena image</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/8a609e57da.png" width="512" height="768" alt="" /></p>
+<p><img src="uploads/2022/8a609e57da.png" width="512" height="768" alt="" /></p>
 
 <p>There are many smart, efficient, and relatively simple algorithms based on multi-resolution image pyramids. Modern GPUs can deal with upscaling and downscaling of RGB/A images at the speed of light, so usually such algorithms can be implemented at interactive or even real-time framerates.</p>
 
@@ -205,7 +272,7 @@ Transport Algorithm</a></p>
 
 <p><em>Upscaled mipmap levels</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/8d745486da.png" width="600" height="600" alt="" /></p>
+<p><img src="uploads/2022/8d745486da.png" width="600" height="600" alt="" /></p>
 
 <p>Note the characteristic “blocky” (bi-linear) appearance, specially evident in the images of the second row.</p>
 
@@ -220,7 +287,7 @@ Transport Algorithm</a></p>
 
 <p><em>Mean pyramid (with holes)</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/ab15c77d06.png" width="512" height="768" alt="" /></p>
+<p><img src="uploads/2022/ab15c77d06.png" width="512" height="768" alt="" /></p>
 
 <p>Note that the analysis stage can stop as soon as a mip level doesn’t have any holes.</p>
 
@@ -228,7 +295,7 @@ Transport Algorithm</a></p>
 
 <p><em>Mean pyramid (filled)</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/92cab1f783.png" width="512" height="768" alt="" /></p>
+<p><img src="uploads/2022/92cab1f783.png" width="512" height="768" alt="" /></p>
 
 <h2 id="conclusions">Conclusions:</h2>
 
@@ -261,13 +328,13 @@ Transport Algorithm</a></p>
 
 <p><em>Aperture x Obstacle mask, rasterized @ 512×512</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/0923ef842a.png" width="512" height="512" alt="" /></p>
+<p><img src="uploads/2022/0923ef842a.png" width="512" height="512" alt="" /></p>
 
 <p>The Fourier Transform of that image, rasterized at that size in said 512×512 buffer, is the following.</p>
 
 <p><em>FT of the mask above</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/91b6b3b6d3.png" width="512" height="512" alt="" /></p>
+<p><img src="uploads/2022/91b6b3b6d3.png" width="512" height="512" alt="" /></p>
 
 <p>The faux-color is done on the magnitude of each complex number in the FT. All the FT images in this post are normalized equally, and offset to look “centered” around the mid-pixel.</p>
 
@@ -275,7 +342,7 @@ Transport Algorithm</a></p>
 
 <p><em>Resulting glare in ArionFX</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/012e902dbf.png" width="480" height="320" alt="" /></p>
+<p><img src="uploads/2022/012e902dbf.png" width="480" height="320" alt="" /></p>
 
 <p>&ndash;</p>
 
@@ -291,7 +358,7 @@ Transport Algorithm</a></p>
 
 <p><em>Rotation about the center</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/a31a55c21f.png" width="600" height="600" alt="" /></p>
+<p><img src="uploads/2022/a31a55c21f.png" width="600" height="600" alt="" /></p>
 
 <h3 id="translation-with-warp-around">Translation (with warp-around)</h3>
 
@@ -299,7 +366,7 @@ Transport Algorithm</a></p>
 
 <p><em>Invariance to translation</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/09db31ab29.png" width="600" height="900" alt="" /></p>
+<p><img src="uploads/2022/09db31ab29.png" width="600" height="900" alt="" /></p>
 
 <p>Let’s recall that the idea behind the FT is that <em>“any periodic function can be rewritten as a weighted sum of sines and cosines of different frequencies”</em>. Periodic being the keyword there.</p>
 
@@ -311,7 +378,7 @@ Transport Algorithm</a></p>
 
 <p><em>Exploded frequencies on tiling</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/6ed11eb3b1.png" width="600" height="300" alt="" /></p>
+<p><img src="uploads/2022/6ed11eb3b1.png" width="600" height="300" alt="" /></p>
 
 <h3 id="data-scaling">Data scaling</h3>
 
@@ -321,7 +388,7 @@ Transport Algorithm</a></p>
 
 <p><em>Inverse effect on scaling</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/c7adf5446a.png" width="600" height="1200" alt="" /></p>
+<p><img src="uploads/2022/c7adf5446a.png" width="600" height="1200" alt="" /></p>
 
 <p>In the particular case of glare (e.g., ArionFX) this means that the diffraction pattern becomes blurry if the iris is sampled small. Or, in other words, for a given iris, the sharpest diffraction pattern possible is achieved when the iris is sampled as large as the data buffer itself.</p>
 
@@ -344,11 +411,11 @@ Transport Algorithm</a></p>
 
 <p><em>Preetham et al. sky model</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/6c9c260561.png" width="600" height="600" alt="" /></p>
+<p><img src="uploads/2022/6c9c260561.png" width="600" height="600" alt="" /></p>
 
 <p><em>Hosek &amp; Wilkie sky model</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/70e29da8dd.png" width="600" height="600" alt="" /></p>
+<p><img src="uploads/2022/70e29da8dd.png" width="600" height="600" alt="" /></p>
 
         </div>
       </div>
@@ -376,7 +443,7 @@ Transport Algorithm</a></p>
 
 <p><em>Raw 32-dimensional Halton hyper-cube</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/cac06392ac.png" width="600" height="600" alt="" /></p>
+<p><img src="uploads/2022/cac06392ac.png" width="600" height="600" alt="" /></p>
 
 <p>One can easily spot how some pairs exhibit an obvious pattern, while others fill their corresponding 2D area very densely. This happens more aggressively for higher dimensions (<em>i.e.,</em> to the right/bottom in the image) and for pairs formed with close components (<em>i.e.,</em> near the diagonal in the image). Click to enlarge!</p>
 
@@ -388,7 +455,7 @@ Transport Algorithm</a></p>
 
 <p><em>Scrambled 32-dimensional Halton hyper-cube</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/2df80353ac.png" width="600" height="600" alt="" /></p>
+<p><img src="uploads/2022/2df80353ac.png" width="600" height="600" alt="" /></p>
 
 <p>Now all the blocks in the grid look equally dense. Magic!</p>
 
@@ -411,9 +478,9 @@ Transport Algorithm</a></p>
 
 <p>In practice, the Sobel operator is simply a pair of 3×3 (separable) <em>convolution kernels</em>. One highlights the horizontal gradient/edges, and the other one highlights the vertical gradient/edges.</p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/628b3579aa.png" width="160" height="60" alt="" /></p>
+<p><img src="uploads/2022/628b3579aa.png" width="160" height="60" alt="" /></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/cf022b06bf.png" width="160" height="60" alt="" /></p>
+<p><img src="uploads/2022/cf022b06bf.png" width="160" height="60" alt="" /></p>
 
 <p>In non-formal terms, and under certain theoretical assumptions, this is conceptually equivalent to computing the partial derivatives of the image with respect to x an y.</p>
 
@@ -421,7 +488,7 @@ Transport Algorithm</a></p>
 
 <p><em>Sobel operator</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/b2d2de2218.png" width="600" height="681" alt="" /></p>
+<p><img src="uploads/2022/b2d2de2218.png" width="600" height="681" alt="" /></p>
 
 <p>This grid presents:</p>
 
@@ -440,7 +507,7 @@ Transport Algorithm</a></p>
 
 <p>Sobel operator (Gaussian with sigma=2)</p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/cce8b82fd4.png" width="600" height="681" alt="" /></p>
+<p><img src="uploads/2022/cce8b82fd4.png" width="600" height="681" alt="" /></p>
 
 <p>The Sobel operator is one of the most fundamental building blocks in feature detection in the field of Computer Vision.</p>
 
@@ -550,7 +617,7 @@ Transport Algorithm</a></p>
 
 <p>Here’s the 0-centered and un-normalized 1D Gaussian function:</p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/0b597462a0.png" width="103" height="26" alt="" /></p>
+<p><img src="uploads/2022/0b597462a0.png" width="103" height="26" alt="" /></p>
 
 <p>The <em>sigma</em> parameter in the Gaussian function stretches the bell shape along the x axis. So it is quite straightforward to understand that if one downsamples the input dataset by a scale factor <em>k</em>, then applies a (smaller) Gaussian where <em>sigma’=s/k</em>, and finally upscales the result by the same scale factor <em>k</em>, the result will approximate a true Gaussian on the original dataset where sigma=s.</p>
 
@@ -583,15 +650,15 @@ Transport Algorithm</a></p>
 
 <p><em>Gaussian blur where sigma=4</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/3fc179f5ba.png" width="600" height="401" alt="" /></p>
+<p><img src="uploads/2022/3fc179f5ba.png" width="600" height="401" alt="" /></p>
 
 <p><em>Gaussian blur where sigma=16</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/c9d9705c2e.png" width="600" height="401" alt="" /></p>
+<p><img src="uploads/2022/c9d9705c2e.png" width="600" height="401" alt="" /></p>
 
 <p><em>Gaussian blur where sigma=64</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/87d800496a.png" width="600" height="401" alt="" /></p>
+<p><img src="uploads/2022/87d800496a.png" width="600" height="401" alt="" /></p>
 
 <h2 id="conclusion">Conclusion:</h2>
 
@@ -620,7 +687,7 @@ Transport Algorithm</a></p>
 
 <p><em>Polygonal diaphragms and f-stop</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/f558614798.png" width="544" height="512" alt="" /></p>
+<p><img src="uploads/2022/f558614798.png" width="544" height="512" alt="" /></p>
 
         </div>
       </div>
@@ -643,7 +710,7 @@ Transport Algorithm</a></p>
 
 <p><em>Glare patterns</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/d174a5ac84.png" width="600" height="225" alt="" /></p>
+<p><img src="uploads/2022/d174a5ac84.png" width="600" height="225" alt="" /></p>
 
 <p>Interestingly, the Fourier Transform produces one infinite decaying streak perpendicular to each polygon edge. When the number of edges is even, the streaks overlap in pairs. That is why an hexagonal diaphragm produces 6 streaks, and an heptagonal diaphragm produces 14.</p>
 
@@ -655,13 +722,13 @@ Transport Algorithm</a></p>
 
 <p><em>Cyclic glare pattern</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/070390a6aa.png" width="600" height="285" alt="" /></p>
+<p><img src="uploads/2022/070390a6aa.png" width="600" height="285" alt="" /></p>
 
 <p><em>Bonus:</em> Here’s some real-life glare I screengrabbed this evening at the European Athletics Championships.</p>
 
 <p><em>Real-life glare</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/475a218b49.png" width="512" height="300" alt="" /></p>
+<p><img src="uploads/2022/475a218b49.png" width="512" height="300" alt="" /></p>
 
         </div>
       </div>
@@ -680,7 +747,7 @@ Transport Algorithm</a></p>
 
 <p><em>My latest 7000 km</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/bce75368a2.jpg" width="600" height="384" alt="" /></p>
+<p><img src="uploads/2022/bce75368a2.jpg" width="600" height="384" alt="" /></p>
 
         </div>
       </div>
@@ -701,7 +768,7 @@ Transport Algorithm</a></p>
 
 <p><em>Even competition between FFT-based vs. separable convolution methods</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/e0fc16f520.png" width="516" height="516" alt="" /></p>
+<p><img src="uploads/2022/e0fc16f520.png" width="516" height="516" alt="" /></p>
 
 <p>Two conclusions can be made from the above plot, which confirm what was explained in my previous post:</p>
 
@@ -716,7 +783,7 @@ Transport Algorithm</a></p>
 
 <p><em>Separable convolution with a fixed 11×11 kernel (in orange)</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/e8ec462e51.png" width="516" height="516" alt="" /></p>
+<p><img src="uploads/2022/e8ec462e51.png" width="516" height="516" alt="" /></p>
 
 <p>A couple more remarks:</p>
 
@@ -778,7 +845,7 @@ Transport Algorithm</a></p>
 
 <p><em>Heavy glare using the FFT-based method in an HDR image by Paul Debevec</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/b55d5885bf.gif" width="341" height="512" alt="" /></p>
+<p><img src="uploads/2022/b55d5885bf.gif" width="341" height="512" alt="" /></p>
 
 <p>This image with heavy glare has been output with some ArionFX-related experimental tonemapping code I am working on these days.</p>
 
@@ -853,7 +920,7 @@ Transport Algorithm</a></p>
 
 <p><em>1D vertical and horizontal Gaussian convolution</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/4171094912.png" width="600" height="402" alt="" /></p>
+<p><img src="uploads/2022/4171094912.png" width="600" height="402" alt="" /></p>
 
 <p>Conveniently enough, the most usual convolution kernels (<em>e.g.,</em> Gaussian blur, box blur, …) happen to be separable.</p>
 
@@ -868,7 +935,7 @@ Transport Algorithm</a></p>
 
 <p><em>2-step separable vs. brute-force 2D Gaussian convolution</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/35a6c714ba.png" width="600" height="608" alt="" /></p>
+<p><img src="uploads/2022/35a6c714ba.png" width="600" height="608" alt="" /></p>
 
 <p><em>Pros:</em></p>
 
@@ -913,11 +980,11 @@ Transport Algorithm</a></p>
 
 <p><em>Brute-force 2D Gaussian vs. the convolution theorem</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/71f4742163.png" width="600" height="609" alt="" /></p>
+<p><img src="uploads/2022/71f4742163.png" width="600" height="609" alt="" /></p>
 
 <p><em>Magic</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/9fd4b3d82e.gif" width="350" height="196" alt="" /></p>
+<p><img src="uploads/2022/9fd4b3d82e.gif" width="350" height="196" alt="" /></p>
 
 <p><em>Pros:</em></p>
 
@@ -976,7 +1043,7 @@ Transport Algorithm</a></p>
 
 <p><em>Classic PSFs: 1D box, 2D box, 1D Gaussian, 2D Gaussian</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/abbfbd24d9.png" width="166" height="320" alt="" /></p>
+<p><img src="uploads/2022/abbfbd24d9.png" width="166" height="320" alt="" /></p>
 
 <p>Although this is not a mandatory requirement, the <em>integral</em> of a PSF usually equals 1, so no energy is gained or lost in the process. The above image does not match this requirement for the sake of visualization; the PSFs on the right column have been un-normalized for better visibility. On the other hand, the range of a PSF (how far away from the source point energy is allowed to reach) can be infinite. However, in most practical uses the range is finite, and usually as short as possible.</p>
 
@@ -986,7 +1053,7 @@ Transport Algorithm</a></p>
 
 <p><em>Classic PSFs applied to an image</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/12fa4bf752.png" width="243" height="320" alt="" /></p>
+<p><img src="uploads/2022/12fa4bf752.png" width="243" height="320" alt="" /></p>
 
 <p><em>WARNING: Do not confuse this with a convolution. We’re not there yet.</em></p>
 
@@ -1018,11 +1085,11 @@ Transport Algorithm</a></p>
 
 <p><em>Glare applied to an Arion render</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/d8b32e04d4.gif" width="600" height="355" alt="" /></p>
+<p><img src="uploads/2022/d8b32e04d4.gif" width="600" height="355" alt="" /></p>
 
 <p><em>Typical glare PSF for a 6-blade iris</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/42dd145d06.png" width="256" height="256" alt="" /></p>
+<p><img src="uploads/2022/42dd145d06.png" width="256" height="256" alt="" /></p>
 
         </div>
       </div>
@@ -1075,7 +1142,7 @@ Transport Algorithm</a></p>
 
 <p><em>Cartesian-to-polar transform</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/2224df4a0d.png" width="600" height="110" alt="" /></p>
+<p><img src="uploads/2022/2224df4a0d.png" width="600" height="110" alt="" /></p>
 
 <p>Each column in the transformed image is one of the ‘spokes’ that go from the center to one of the pixels at the perimeter in the original image. The length of the largest spoke is half a diagonal, while the perimeter of a WxH image has <code>2·(W+H-2)</code> pixels. So the transformed image is a buffer of dimensions <code>ceil(sqrt(W^2+H^2)/2)</code> and <code>2·(W+H-2)</code>.</p>
 
@@ -1087,7 +1154,7 @@ Transport Algorithm</a></p>
 
 <p><em>Sample 1x1 px area</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/85af42db00.png" width="461" height="322" alt="" /></p>
+<p><img src="uploads/2022/85af42db00.png" width="461" height="322" alt="" /></p>
 
 <p>Note also that the inverse transform must ‘undo’ the filtering, by splatting contributions to the final image using the same surface overlapping factors.</p>
 
@@ -1104,11 +1171,11 @@ Transport Algorithm</a></p>
 
 <p><em>Circular blur</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/783f3b179f.gif" width="600" height="337" alt="" /></p>
+<p><img src="uploads/2022/783f3b179f.gif" width="600" height="337" alt="" /></p>
 
 <p><em>Radial blur</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/f74e2ef315.gif" width="600" height="337" alt="" /></p>
+<p><img src="uploads/2022/f74e2ef315.gif" width="600" height="337" alt="" /></p>
 
 <p>Some bonus remarks:</p>
 
@@ -1120,7 +1187,7 @@ Transport Algorithm</a></p>
 
 <p><em>Lens blur &amp; heavy chromatic aberration</em></p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/6c6105cdb8.gif" width="600" height="337" alt="" /></p>
+<p><img src="uploads/2022/6c6105cdb8.gif" width="600" height="337" alt="" /></p>
 
 <p>Some more final remarks:</p>
 
@@ -1144,7 +1211,7 @@ Transport Algorithm</a></p>
 
 <p>This is a graph plotted by some simulation code I prototyped way back during the R&amp;D phase (circa 2014). Each wavelength (simplified to RGB in the plot) traverses the media with different stochastic statistics.</p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/a0dd1496bf.jpg" width="600" height="450" alt="" /></p>
+<p><img src="uploads/2022/a0dd1496bf.jpg" width="600" height="450" alt="" /></p>
 
         </div>
       </div>
@@ -1159,7 +1226,7 @@ Transport Algorithm</a></p>
         <div class="e-content">
          	<p><a href="https://en.wikipedia.org/wiki/Legendre_polynomials">Legendre polynomials</a>. Because&hellip; Why not?</p>
 
-<p><img src="https://www.brashandplucky.com/uploads/2022/412a9abc3b.png" width="256" height="256" alt="" /></p>
+<p><img src="uploads/2022/412a9abc3b.png" width="256" height="256" alt="" /></p>
 
         </div>
       </div>
