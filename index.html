@@ -24,6 +24,36 @@
 	
       <div class="h-entry">
 		
+
+        <a href="https://www.brashandplucky.com/2022/05/05/float-int-quiz.html" class="u-url"><time class="dt-published" datetime="2022-05-05 19:57:27 &#43;0200">May 5, 2022</time></a>
+
+        <div class="e-content">
+         	<p>float &lt;-&gt; int</p>
+
+<p>Quiz: Does this loop end, and if it does, what is the value of k after the loop? (assuming IEEE-754 and usual 32-bit semantics for int/float)</p>
+
+<p>int k = 0;
+while ( (int)( (float)( k ) ) == k ) ++k;</p>
+
+<p>The answer is 16777217, which is 2^24+1.</p>
+
+<p>In other words, more revealing about the true intent of the quiz, float can encode -exactly- (without any precission loss) all natural numbers up to 2^24 (included). Because float encodes sign in a dedicated bit, this property holds true for negative values. So you could <em>hypothetically</em> encode any [-2^24..+2^24] int in a float with a static/implicit cast.</p>
+
+<p>I said <em>hypothetically</em> because I would never do that. Careless castings between int and float (without an explicit floor, ceil, trunc, round&hellip;) are often a sign of lousy coding, unless we are in a context such as a pixel shader, where if you know what you are doing you can get a performance benefit by casting recklessly.</p>
+
+<p>However, I came across the situation in Unity recently, where the Vertex ID node in their Shader Graph hands over SV_VertexID as a float (screeches in disgust). I would&rsquo;ve expected an uint/int output or a float where you could reinterpret-cast to retrieve the raw SV_VertexID bits with asuint. But nope. You get a float which seemingly comes from (float)SV_VertexID.</p>
+
+<p>One may recklessly use that float to index a StructuredBuffer ignoring the way static-casting works. And this is one case where ignorance is not punished easily. Because the float received exactly matches the original int as long as the original value is &lt;=2^24. That is, as long as you are dealing with fewer than (roughly) 16.7 million vertices, which is usually the case.</p>
+
+<p>I believe that Unity&rsquo;s ShaderGraph doesn&rsquo;t support int/uint as in/out values between nodes, so I guess that the Vertex ID and Instance ID nodes just static-cast the corresponding SV_&hellip; value to a float. But it would be better (in the pedantic sense) to reinterpret the bit pattern of the raw values with asfloat and let the user retrieve them with asint/asuint.</p>
+
+<p><a href="https://docs.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-asfloat">docs.microsoft.com/en-us/win&hellip;</a></p>
+
+        </div>
+      </div>
+    
+      <div class="h-entry">
+		
 			<h1><a href="https://www.brashandplucky.com/2022/04/20/fake-viewport-pbr.html">Viewport baked PBR materials</a></h1>
 		
 
