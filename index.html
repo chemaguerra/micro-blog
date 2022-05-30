@@ -22,45 +22,102 @@
 
 	
 	
-      <div class="h-entry">
+	  <div class="h-entry">
+		
+			<h1><a href="https://www.brashandplucky.com/2022/05/05/float-int-quiz.html">Recklessly encoding int as float</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/05/05/float-int-quiz.html" class="u-url"><time class="dt-published" datetime="2022-05-05 19:57:27 &#43;0200">May 5, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/05/05/float-int-quiz.html" class="u-url"><time class="dt-published" datetime="2022-05-05 19:57:00 &#43;0200">May 5, 2022</time></a>
 
-        <div class="e-content">
-         	<p>float &lt;-&gt; int</p>
+		<div class="e-content">
+			 <p><em>Quiz:</em> Does this loop end, and if it does, what is the value of <code>k</code> after the loop? (assuming IEEE-754 and usual 32-bit semantics for <code>int/float</code>)</p>
 
-<p>Quiz: Does this loop end, and if it does, what is the value of k after the loop? (assuming IEEE-754 and usual 32-bit semantics for int/float)</p>
+<p><img src="uploads/2022/cc2287c141.png" width="600" height="155" alt="" /></p>
 
-<p>int k = 0;
-while ( (int)( (float)( k ) ) == k ) ++k;</p>
+<p>Running this code in VS you get <code>k=16777217</code> which equals <code>2^24+1</code>.</p>
 
-<p>The answer is 16777217, which is 2^24+1.</p>
+<p>In other words, in line with the true intent of the quiz, <code>float</code> can encode -exactly- (without any precission loss) all natural numbers up to <code>2^24</code> (included). Because <code>float</code> encodes sign in a dedicated bit, this property holds true for negative values as well. So you could <em>hypothetically</em> encode any <code>[-2^24..+2^24]</code> <code>int</code> in a <code>float</code> with a static/implicit cast.</p>
 
-<p>In other words, more revealing about the true intent of the quiz, float can encode -exactly- (without any precission loss) all natural numbers up to 2^24 (included). Because float encodes sign in a dedicated bit, this property holds true for negative values. So you could <em>hypothetically</em> encode any [-2^24..+2^24] int in a float with a static/implicit cast.</p>
+<p>I said <em>hypothetically</em> because generally speaking I would never do such thing. Carelessly casting between <code>int</code> and <code>float</code> (without an explicit <code>floor</code>, <code>ceil</code>, <code>trunc</code>, <code>round</code>&hellip;) is often a sign of lousy coding, unless performance is at stake and you know well what you are doing.</p>
 
-<p>I said <em>hypothetically</em> because I would never do that. Careless castings between int and float (without an explicit floor, ceil, trunc, round&hellip;) are often a sign of lousy coding, unless we are in a context such as a pixel shader, where if you know what you are doing you can get a performance benefit by casting recklessly.</p>
+<p>However, I came across the situation in Unity recently, where the <code>Vertex ID</code> node in their Shader Graph hands over <code>SV_VertexID</code> as a <code>float</code> (disappointed face :-P). I would&rsquo;ve expected an <code>uint/int</code> output or a <code>float</code> that you could reinterpret-cast to retrieve the raw <code>SV_VertexID</code> bits with <a href="https://docs.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-asuint">asuint()</a>. But nope. You get a <code>float</code> which seemingly carries <code>(float)SV_VertexID</code>.</p>
 
-<p>However, I came across the situation in Unity recently, where the Vertex ID node in their Shader Graph hands over SV_VertexID as a float (screeches in disgust). I would&rsquo;ve expected an uint/int output or a float where you could reinterpret-cast to retrieve the raw SV_VertexID bits with asuint. But nope. You get a float which seemingly comes from (float)SV_VertexID.</p>
+<p>One may recklessly use this <code>float</code> to index a <code>StructuredBuffer</code> ignoring the way static-casting works. This is one case where ignorance is bliss, because the <code>float</code> received exactly matches the original <code>int</code> as long as the original value is <code>&lt;=2^24</code>. That is, as long as you are dealing with fewer than (roughly) 16.7 million vertices, which is usually the case.</p>
 
-<p>One may recklessly use that float to index a StructuredBuffer ignoring the way static-casting works. And this is one case where ignorance is not punished easily. Because the float received exactly matches the original int as long as the original value is &lt;=2^24. That is, as long as you are dealing with fewer than (roughly) 16.7 million vertices, which is usually the case.</p>
+<p>I believe that Unity&rsquo;s ShaderGraph doesn&rsquo;t support <code>int/uint</code> as In/Out values between nodes, so I guess that the <code>Vertex ID</code> and <code>Instance ID</code> nodes just static-cast the corresponding <code>SV_...</code> value to a float. But it would be better (in the <em>pedantic</em> sense) to reinterpret the bit pattern of the raw values with <code>asfloat</code> and then let the user retrieve them with <code>asint()/asuint()</code>.</p>
 
-<p>I believe that Unity&rsquo;s ShaderGraph doesn&rsquo;t support int/uint as in/out values between nodes, so I guess that the Vertex ID and Instance ID nodes just static-cast the corresponding SV_&hellip; value to a float. But it would be better (in the pedantic sense) to reinterpret the bit pattern of the raw values with asfloat and let the user retrieve them with asint/asuint.</p>
+<p>&ndash;</p>
 
-<p><a href="https://docs.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-asfloat">docs.microsoft.com/en-us/win&hellip;</a></p>
+<p><strong>reinterpret-cast between int/float in HSLS:</strong></p>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+<p><a href="https://docs.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-asint">asint()</a>
+<a href="https://docs.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-asuint">asuint()</a>
+<a href="https://docs.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-asfloat">asfloat()</a></p>
+
+<p>&ndash;</p>
+
+<p><strong>A (loose) explanation of the 2^24 limit:</strong></p>
+
+<p>This is the <a href="https://en.wikipedia.org/wiki/IEEE_754">IEEE-754 standard</a> for floating-point numbers, as described in Wikipedia:</p>
+
+<p><img src="uploads/2022/c76210ac43.png" width="600" height="90" alt="" /></p>
+
+<p>The value of a float-encoded number is reconstructed as <code>(-1)^S * M * 2^E</code>.</p>
+
+<ul>
+<li><code>S</code> is the 1-bit sign.</li>
+<li><code>M</code> is the 23-bit mantissa, interpreted as <code>1.xxxxx</code> (in binary).</li>
+<li><code>E</code> is the 8-bit exponent, used as <code>E-127</code> where 127 is often called <em>bias</em>.</li>
+</ul>
+
+<p><em>e.g.,</em> a power-of-2 integer number like 4 would be encoded as:</p>
+
+<ul>
+<li><code>M=1.00</code> which is the binary representation of 4, with the point at the left-most 1.</li>
+<li><code>E=2</code> (+bias).</li>
+</ul>
+
+<p>The restored number is <code>1.00 shl 2=4</code>.</p>
+
+<p>We should be able to do the same for all power-of-2 integers until we max out <code>E</code>.</p>
+
+<p>For non-power-of-2 integers the process is similar. <em>e.g.,</em> number 5:</p>
+
+<ul>
+<li><code>M=1.01...00</code>.</li>
+<li><code>E=2</code> (+bias).</li>
+</ul>
+
+<p>The restored number is now <code>1.01 shl 2=5</code>.</p>
+
+<p>This works the same for all integer numbers as long as <code>M</code> can hold the raw binary representation of the number. The tallest binary number that <code>M</code> can hold is 23 consecutive 1s. That is: 1.11&hellip;11 (24x1s in total). With <code>E=23</code> (+bias) this equals <code>2^24-1</code>.</p>
+
+<p>The next integer <code>2^24</code> would be encoded as <code>1.00...00</code> (24x0s, clamped to 23, but the trailing 0s are meaningless here). With <code>E=24</code> (+bias) this equals <code>2^24</code> (<strong>the answer provided above!!</strong>).</p>
+
+<p>But the next integer <code>1.{23x0s.1}</code> can&rsquo;t be encoded in a 23-bit <code>M</code>. So from 2^24 onwards, there is necessarily a loss. Some integers beyond 2^24 (such as powers-of-2) will be luckily encoded exactly by <code>float</code>. But not all consecutive numbers will. Actually, <code>2^24+1</code> is the first integer that won&rsquo;t.</p>
+
+<p>As always, <em>apologies for any mistakes in any of my posts</em>.</p>
+
+<p>&ndash;</p>
+
+<p><strong>[EDIT]</strong> The same reasoning can be applied to double, where the mantisa <code>M</code> is 52-bit long.</p>
+
+<p><img src="uploads/2022/f0b41d494d.png" width="600" height="130" alt="" /></p>
+
+<p>Hence double can encode exactly all integers in the range <code>[-2^53..+2^53]</code>.</p>
+
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/04/20/fake-viewport-pbr.html">Viewport baked PBR materials</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/04/20/fake-viewport-pbr.html" class="u-url"><time class="dt-published" datetime="2022-04-20 04:51:00 &#43;0200">Apr 20, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/04/20/fake-viewport-pbr.html" class="u-url"><time class="dt-published" datetime="2022-04-20 04:51:00 &#43;0200">Apr 20, 2022</time></a>
 
-        <div class="e-content">
-         	<p>The technique described here is very basic, but useful nonetheless.</p>
+		<div class="e-content">
+			 <p>The technique described here is very basic, but useful nonetheless.</p>
 
 <p>Let&rsquo;s make the following (cringy :-D) assumptions:</p>
 
@@ -112,18 +169,18 @@ while ( (int)( (float)( k ) ) == k ) ++k;</p>
 <li>This technique can be extended by using 2 ball images: one with the diffuse component of the material, and another with the specular component. This way the fragment shader could modulate the diffuse part and the specular part by separate colors that could be passed as inputs to the shader. Keep in mind that this would require that the ball images and the colors are passed in linear (instead of sRGB) space and that the resulting color is sent back to sRGB.</li>
 </ul>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/04/16/im-currently-swimming.html">Trimmed NURBS</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/04/16/im-currently-swimming.html" class="u-url"><time class="dt-published" datetime="2022-04-16 07:44:00 &#43;0200">Apr 16, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/04/16/im-currently-swimming.html" class="u-url"><time class="dt-published" datetime="2022-04-16 07:44:00 &#43;0200">Apr 16, 2022</time></a>
 
-        <div class="e-content">
-         	<p>I&rsquo;m currently swimming in an ocean of NURBS with their trimming loops. This is experimental work for NURBS rendering in Maverick Render.</p>
+		<div class="e-content">
+			 <p>I&rsquo;m currently swimming in an ocean of NURBS with their trimming loops. This is experimental work for NURBS rendering in Maverick Render.</p>
 
 <p><img src="uploads/2022/b0526fdbcf.png" width="600" height="519" alt="" /></p>
 
@@ -133,18 +190,18 @@ while ( (int)( (float)( k ) ) == k ) ++k;</p>
 
 <video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/6e97cf2bcb.mp4" width="600" height="600" poster="https://www.brashandplucky.com/uploads/2022/2fd92ed526.png" preload="none"></video>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/04/12/a-couple-of.html">Lattice-Boltzmann Method (LBM)</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/04/12/a-couple-of.html" class="u-url"><time class="dt-published" datetime="2022-04-12 23:52:00 &#43;0200">Apr 12, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/04/12/a-couple-of.html" class="u-url"><time class="dt-published" datetime="2022-04-12 23:52:00 &#43;0200">Apr 12, 2022</time></a>
 
-        <div class="e-content">
-         	<p>A couple of weekends ago I was tinkering with fluid dynamics and implemented a few compute shaders in Unity. Among the ones I implemented, my favorite is the Lattice-Boltzmann Method featured here.</p>
+		<div class="e-content">
+			 <p>A couple of weekends ago I was tinkering with fluid dynamics and implemented a few compute shaders in Unity. Among the ones I implemented, my favorite is the Lattice-Boltzmann Method featured here.</p>
 
 <p><img src="uploads/2022/407fc47c9b.jpg" width="575" height="345" alt="" /></p>
 
@@ -154,18 +211,18 @@ while ( (int)( (float)( k ) ) == k ) ++k;</p>
 
 <p>I also hope to find some spare time soon to write a quick article on how to implement an LBM cellular automata from a light-on-maths perspective.</p>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/04/12/224748.html">Colorful pet project</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/04/12/224748.html" class="u-url"><time class="dt-published" datetime="2022-04-12 22:47:00 &#43;0200">Apr 12, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/04/12/224748.html" class="u-url"><time class="dt-published" datetime="2022-04-12 22:47:00 &#43;0200">Apr 12, 2022</time></a>
 
-        <div class="e-content">
-         	<p>Some pet project I am making some progress on. More info soon. Definitely. Maybe.</p>
+		<div class="e-content">
+			 <p>Some pet project I am making some progress on. More info soon. Definitely. Maybe.</p>
 
 <p><img src="uploads/2022/49bd635e27.jpg" width="600" height="576" alt="" /></p>
 
@@ -175,18 +232,18 @@ while ( (int)( (float)( k ) ) == k ) ++k;</p>
 
 <p><img src="uploads/2022/ce58ca5845.gif" width="600" height="623" alt="" /></p>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/02/11/topology-fun.html">Topology fun</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/02/11/topology-fun.html" class="u-url"><time class="dt-published" datetime="2022-02-12 00:17:00 &#43;0200">Feb 12, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/02/11/topology-fun.html" class="u-url"><time class="dt-published" datetime="2022-02-12 00:17:00 &#43;0200">Feb 12, 2022</time></a>
 
-        <div class="e-content">
-         	<p>Recently I have been revisiting in my spare time one of my favorite subjects: <a href="https://en.wikipedia.org/wiki/Topology">topology</a>. I will probably be posting some stuff about topological operators, subdivision surfaces, DCEL structures, irregular tilings and such things in the near future.</p>
+		<div class="e-content">
+			 <p>Recently I have been revisiting in my spare time one of my favorite subjects: <a href="https://en.wikipedia.org/wiki/Topology">topology</a>. I will probably be posting some stuff about topological operators, subdivision surfaces, DCEL structures, irregular tilings and such things in the near future.</p>
 
 <p>Below: A little demo I&rsquo;ve written that supports an extended flavor of <a href="https://en.wikipedia.org/wiki/Conway_polyhedron_notation">Conway&rsquo;s notation</a> for polyhedra: <code>adotaocD</code>.</p>
 
@@ -194,18 +251,18 @@ while ( (int)( (float)( k ) ) == k ) ++k;</p>
 
 <p><strong>[EDIT] I paused this pet project for the time being&hellip;</strong> because the 2022.2 release of <a href="https://maverickrender.com/">Maverick</a> has virtually blown all my productivity hours away. But I plan to write some entries on topological operators at some point further into this year.</p>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/30/old-mlt-experiments.html">Old MLT experiments</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/30/old-mlt-experiments.html" class="u-url"><time class="dt-published" datetime="2022-01-30 05:52:00 &#43;0200">Jan 30, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/30/old-mlt-experiments.html" class="u-url"><time class="dt-published" datetime="2022-01-30 05:52:00 &#43;0200">Jan 30, 2022</time></a>
 
-        <div class="e-content">
-         	
+		<div class="e-content">
+			 
 
 <p><strong>These are some very old MLT tests that I found on my hard drive today.</strong></p>
 
@@ -254,18 +311,18 @@ Transport Algorithm</a></p>
 
 <p><img src="uploads/2022/45f4967f73.jpg" width="600" height="337" alt="" /></p>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/29/uniform-vs-stratified.html">Uniform vs. stratified (2015-03-10)</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/29/uniform-vs-stratified.html" class="u-url"><time class="dt-published" datetime="2022-01-29 16:34:38 &#43;0200">Jan 29, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/29/uniform-vs-stratified.html" class="u-url"><time class="dt-published" datetime="2022-01-29 16:34:38 &#43;0200">Jan 29, 2022</time></a>
 
-        <div class="e-content">
-         	<p><strong>[EDIT] This post was migrated from my blog from 2011…</strong></p>
+		<div class="e-content">
+			 <p><strong>[EDIT] This post was migrated from my blog from 2011…</strong></p>
 
 <p>This is a classic subject in numerical (Monte Carlo) integration.</p>
 
@@ -275,18 +332,18 @@ Transport Algorithm</a></p>
 
 <p>To the left: 32768 points in a 512×512 image using a uniform random number generator (Mersenne Twister). To the right, the first 32768 pairs in the Halton series, using dimensions #0 and #1. Click to enlarge!</p>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/29/filling-of-missing.html">Filling of missing image pixels (2015-05-28)</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/29/filling-of-missing.html" class="u-url"><time class="dt-published" datetime="2022-01-29 16:01:00 &#43;0200">Jan 29, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/29/filling-of-missing.html" class="u-url"><time class="dt-published" datetime="2022-01-29 16:01:00 &#43;0200">Jan 29, 2022</time></a>
 
-        <div class="e-content">
-         	
+		<div class="e-content">
+			 
 
 <p><strong>[EDIT] This post was migrated from my blog from 2011…</strong></p>
 
@@ -335,18 +392,18 @@ Transport Algorithm</a></p>
 
 <p>TL;DR: Given the ease of implementation and the extreme potential in terms of efficiency, the results are quite decent for many applications.</p>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/29/playing-with-the.html">Playing with the Fourier Transform (2016-07-28)</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/29/playing-with-the.html" class="u-url"><time class="dt-published" datetime="2022-01-29 16:01:00 &#43;0200">Jan 29, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/29/playing-with-the.html" class="u-url"><time class="dt-published" datetime="2022-01-29 16:01:00 &#43;0200">Jan 29, 2022</time></a>
 
-        <div class="e-content">
-         	
+		<div class="e-content">
+			 
 
 <p><strong>[EDIT] This post was migrated from my blog from 2011…</strong></p>
 
@@ -424,18 +481,18 @@ Transport Algorithm</a></p>
 
 <p>Note, however, that “large” here means “with respect to the data buffer”, being the size of the data buffer irrelevant as we will see next.</p>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/29/hosek-wilkie-sky.html">Hosek &amp; Wilkie sky model (2015-03-03)</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/29/hosek-wilkie-sky.html" class="u-url"><time class="dt-published" datetime="2022-01-29 16:00:00 &#43;0200">Jan 29, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/29/hosek-wilkie-sky.html" class="u-url"><time class="dt-published" datetime="2022-01-29 16:00:00 &#43;0200">Jan 29, 2022</time></a>
 
-        <div class="e-content">
-         	<p><strong>[EDIT] This post was migrated from my blog from 2011…</strong></p>
+		<div class="e-content">
+			 <p><strong>[EDIT] This post was migrated from my blog from 2011…</strong></p>
 
 <p>This is an old comparison between the Preetham and Hosek &amp; Wilkie sky/sun models.</p>
 
@@ -447,18 +504,18 @@ Transport Algorithm</a></p>
 
 <p><img src="uploads/2022/70e29da8dd.png" width="600" height="600" alt="" /></p>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/29/scrambled-halton.html">Scrambled Halton (2015-03-10)</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/29/scrambled-halton.html" class="u-url"><time class="dt-published" datetime="2022-01-29 16:00:00 &#43;0200">Jan 29, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/29/scrambled-halton.html" class="u-url"><time class="dt-published" datetime="2022-01-29 16:00:00 &#43;0200">Jan 29, 2022</time></a>
 
-        <div class="e-content">
-         	<p><strong>[EDIT] This post was migrated from my blog from 2011…</strong></p>
+		<div class="e-content">
+			 <p><strong>[EDIT] This post was migrated from my blog from 2011…</strong></p>
 
 <p>The Halton sequence, which is one of my favourite algorithms ever, can be used for efficient stratified multi-dimensional sampling. Some references:</p>
 
@@ -491,18 +548,18 @@ Transport Algorithm</a></p>
 
 <p>As long as one picks good PRPs, it is possible to generate any number of different samplings, all with the same good properties.</p>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/29/sobel-operator.html">Sobel operator (2014-09-07)</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/29/sobel-operator.html" class="u-url"><time class="dt-published" datetime="2022-01-29 15:56:00 &#43;0200">Jan 29, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/29/sobel-operator.html" class="u-url"><time class="dt-published" datetime="2022-01-29 15:56:00 &#43;0200">Jan 29, 2022</time></a>
 
-        <div class="e-content">
-         	<p><strong>[EDIT] This post was migrated from my blog from 2011…</strong></p>
+		<div class="e-content">
+			 <p><strong>[EDIT] This post was migrated from my blog from 2011…</strong></p>
 
 <p>The <a href="https://en.wikipedia.org/wiki/Sobel_operator">Sobel operator</a> is a simple way to approximate the gradient of the intensity in an image. This, in visual terms, can be used for <em>edge detection</em>. The purpose of edge detection is to significantly reduce the amount of data in the image, while preserving the structural properties to be used for further image processing.</p>
 
@@ -545,18 +602,18 @@ Transport Algorithm</a></p>
 
 <p><em>Bonus remark:</em> Sobel filtering is very similar to what a render engine such as <a href="https://maverickrender.com">Maverick</a> does to transform a height map (bump map) into a normal map.</p>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/29/the-error-function.html">The Error function (erf) (2014-09-06)</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/29/the-error-function.html" class="u-url"><time class="dt-published" datetime="2022-01-29 15:55:00 &#43;0200">Jan 29, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/29/the-error-function.html" class="u-url"><time class="dt-published" datetime="2022-01-29 15:55:00 &#43;0200">Jan 29, 2022</time></a>
 
-        <div class="e-content">
-         	
+		<div class="e-content">
+			 
 
 <p><strong>[EDIT] This post was migrated from my blog from 2011…</strong></p>
 
@@ -622,18 +679,18 @@ Transport Algorithm</a></p>
 
 <p>So if you are going to Gaussian-blur at radius 1px or smaller, and precision is important, then it is necessary to use <code>erf(x,sigma)</code> or at least super-sample <code>G(x,sigma)</code>.</p>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/29/downsampling-and-gaussian.html">Downsampling and Gaussian blur (2014-09-01)</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/29/downsampling-and-gaussian.html" class="u-url"><time class="dt-published" datetime="2022-01-29 15:54:00 &#43;0200">Jan 29, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/29/downsampling-and-gaussian.html" class="u-url"><time class="dt-published" datetime="2022-01-29 15:54:00 &#43;0200">Jan 29, 2022</time></a>
 
-        <div class="e-content">
-         	
+		<div class="e-content">
+			 
 
 <p><strong>[EDIT] This post was migrated from my blog from 2011…</strong></p>
 
@@ -700,18 +757,18 @@ Transport Algorithm</a></p>
 
 <p>The choice <em>k=sigma</em> offers a good trade-off between approximation error and speed gain as shown above.</p>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/29/diaphragm-and-fstop.html">Diaphragm and f-stop (2014-08-17)</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/29/diaphragm-and-fstop.html" class="u-url"><time class="dt-published" datetime="2022-01-29 15:51:10 &#43;0200">Jan 29, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/29/diaphragm-and-fstop.html" class="u-url"><time class="dt-published" datetime="2022-01-29 15:51:10 &#43;0200">Jan 29, 2022</time></a>
 
-        <div class="e-content">
-         	<p><strong>[EDIT] This post was migrated from my blog from 2011…</strong></p>
+		<div class="e-content">
+			 <p><strong>[EDIT] This post was migrated from my blog from 2011…</strong></p>
 
 <p>This is just another image taken from the Maverick Unit Testing system. The chart displays different polygonal diaphragms at different f-stop values. Doubling the f-stop number, halves the surface light can pass through.</p>
 
@@ -719,18 +776,18 @@ Transport Algorithm</a></p>
 
 <p><img src="uploads/2022/f558614798.png" width="544" height="512" alt="" /></p>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/29/glare-patterns.html">Glare patterns (2014-08-14)</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/29/glare-patterns.html" class="u-url"><time class="dt-published" datetime="2022-01-29 15:49:00 &#43;0200">Jan 29, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/29/glare-patterns.html" class="u-url"><time class="dt-published" datetime="2022-01-29 15:49:00 &#43;0200">Jan 29, 2022</time></a>
 
-        <div class="e-content">
-         	<p><strong>[EDIT] This post was migrated from my blog from 2011…</strong></p>
+		<div class="e-content">
+			 <p><strong>[EDIT] This post was migrated from my blog from 2011…</strong></p>
 
 <p>Glare in photography is due to <a href="https://en.wikipedia.org/wiki/Fraunhofer_diffraction">Fraunhofer diffraction</a> as light from distant objects passes through the camera diaphragm.</p>
 
@@ -760,18 +817,18 @@ Transport Algorithm</a></p>
 
 <p><img src="uploads/2022/475a218b49.png" width="512" height="300" alt="" /></p>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/29/my-latest-running.html">My latest running shoes (2014-08-07)</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/29/my-latest-running.html" class="u-url"><time class="dt-published" datetime="2022-01-29 15:47:00 &#43;0200">Jan 29, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/29/my-latest-running.html" class="u-url"><time class="dt-published" datetime="2022-01-29 15:47:00 &#43;0200">Jan 29, 2022</time></a>
 
-        <div class="e-content">
-         	<p><strong>[EDIT] This post was migrated from my blog from 2011…</strong></p>
+		<div class="e-content">
+			 <p><strong>[EDIT] This post was migrated from my blog from 2011…</strong></p>
 
 <p>I have run my latest 7000 km or so on Nike Lunaracer+ (v1 and v3) shoes. This week I started my last pair. I will have to re-stock soon.</p>
 
@@ -779,18 +836,18 @@ Transport Algorithm</a></p>
 
 <p><img src="uploads/2022/bce75368a2.jpg" width="600" height="384" alt="" /></p>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/29/fast-convolutions-iii.html">Fast convolutions (III) (2014-07-19)</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/29/fast-convolutions-iii.html" class="u-url"><time class="dt-published" datetime="2022-01-29 15:44:00 &#43;0200">Jan 29, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/29/fast-convolutions-iii.html" class="u-url"><time class="dt-published" datetime="2022-01-29 15:44:00 &#43;0200">Jan 29, 2022</time></a>
 
-        <div class="e-content">
-         	<p><strong>[EDIT] This post was migrated from my blog from 2011…</strong></p>
+		<div class="e-content">
+			 <p><strong>[EDIT] This post was migrated from my blog from 2011…</strong></p>
 
 <p>Some more remarks about the performance of the convolution methods described so far. I will be leaving the brute-force algorithm out for obvious reasons.</p>
 
@@ -822,18 +879,18 @@ Transport Algorithm</a></p>
 <li>The running time of the FFT/IFFT is not exactly a trivial subject. Speed in FFT/IFFT algorithms depends not only on the size of the data, but also on the data itself. While generating the above plots, I came across some anomalies in the time measurements. Some kernels or some images produced faster or slower results. Some combinations would even produce non-flat steps in the staircase-looking graph. That’s normal, but worth mentioning.</li>
 </ol>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/29/fast-convolutions-ii.html">Fast convolutions (II) (2014-07-18)</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/29/fast-convolutions-ii.html" class="u-url"><time class="dt-published" datetime="2022-01-29 15:43:00 &#43;0200">Jan 29, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/29/fast-convolutions-ii.html" class="u-url"><time class="dt-published" datetime="2022-01-29 15:43:00 &#43;0200">Jan 29, 2022</time></a>
 
-        <div class="e-content">
-         	
+		<div class="e-content">
+			 
 
 <p><strong>[EDIT] This post was migrated from my blog from 2011…</strong></p>
 
@@ -891,18 +948,18 @@ Transport Algorithm</a></p>
 
 <p>Last, but certainly not least, <strong>there is a much faster and more light-weight algorithm for the special case of Box/Gaussian Blur</strong>. I will talk about this in a separate blog entry.</p>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/28/fast-convolutions-i.html">Fast convolutions (I) (2014-07-18)</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/28/fast-convolutions-i.html" class="u-url"><time class="dt-published" datetime="2022-01-28 03:55:00 &#43;0200">Jan 28, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/28/fast-convolutions-i.html" class="u-url"><time class="dt-published" datetime="2022-01-28 03:55:00 &#43;0200">Jan 28, 2022</time></a>
 
-        <div class="e-content">
-         	
+		<div class="e-content">
+			 
 
 <p><strong>[EDIT] This post was migrated from my blog from 2011…</strong></p>
 
@@ -1054,18 +1111,18 @@ Transport Algorithm</a></p>
 
 <p>Since convolutions are usually applied on very large images, writing <strong>cache-friendly code</strong> can make a big difference. Assuming that the memory layout of your image/kernel is per rows, make sure to arrange your loops so memory accesses are as consecutive as possible. This is immediate for the loops that do a 1D convolution on each row. However, for the loops that do a 1D convolution on each column, it may help to use a local cache to transpose a column to a row back and forth.</p>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/17/pointspread-functions-convolutions.html">Point-Spread Functions &amp; Convolutions (2014-07-14)</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/17/pointspread-functions-convolutions.html" class="u-url"><time class="dt-published" datetime="2022-01-17 04:06:00 &#43;0200">Jan 17, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/17/pointspread-functions-convolutions.html" class="u-url"><time class="dt-published" datetime="2022-01-17 04:06:00 &#43;0200">Jan 17, 2022</time></a>
 
-        <div class="e-content">
-         	<p><strong>[EDIT] This post was migrated from my blog from 2011&hellip;</strong></p>
+		<div class="e-content">
+			 <p><strong>[EDIT] This post was migrated from my blog from 2011&hellip;</strong></p>
 
 <p>One might explain what a <a href="https://en.wikipedia.org/wiki/Convolution">convolution</a> is in many ways. However, in the field of image processing, there is an informal and very intuitive way to understand convolutions through the concept of <a href="https://en.wikipedia.org/wiki/Point_spread_function">Point-Spread Functions</a> and their inverses.</p>
 
@@ -1121,18 +1178,18 @@ Transport Algorithm</a></p>
 
 <p><img src="uploads/2022/42dd145d06.png" width="256" height="256" alt="" /></p>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/16/unbiased-spanningtree-generation.html">Unbiased spanning-tree generation</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/16/unbiased-spanningtree-generation.html" class="u-url"><time class="dt-published" datetime="2022-01-16 17:16:00 &#43;0200">Jan 16, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/16/unbiased-spanningtree-generation.html" class="u-url"><time class="dt-published" datetime="2022-01-16 17:16:00 &#43;0200">Jan 16, 2022</time></a>
 
-        <div class="e-content">
-         	<p>Recently I&rsquo;ve done some micro-tests with spanning-trees in my spare time inspired by some talks I had with my good friend ditiem.</p>
+		<div class="e-content">
+			 <p>Recently I&rsquo;ve done some micro-tests with spanning-trees in my spare time inspired by some talks I had with my good friend ditiem.</p>
 
 <p>The video below is my implementation of <a href="https://en.wikipedia.org/wiki/Maze_generation_algorithm">Wilson&rsquo;s algorithm</a>.</p>
 
@@ -1151,18 +1208,18 @@ Transport Algorithm</a></p>
 
 <video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/ed291d75cb.mp4" width="520" height="520" poster="https://www.brashandplucky.com/uploads/2022/5ca96a4051.png" preload="none"></video>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/16/circular-and-radial.html">Circular &amp; radial blur (2014-07-14)</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/16/circular-and-radial.html" class="u-url"><time class="dt-published" datetime="2022-01-16 16:56:00 &#43;0200">Jan 16, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/16/circular-and-radial.html" class="u-url"><time class="dt-published" datetime="2022-01-16 16:56:00 &#43;0200">Jan 16, 2022</time></a>
 
-        <div class="e-content">
-         	<p><strong>[EDIT] This post was migrated from my blog from 2011&hellip;</strong></p>
+		<div class="e-content">
+			 <p><strong>[EDIT] This post was migrated from my blog from 2011&hellip;</strong></p>
 
 <p>Circular and radial blur can be implemented in different ways. The method I am going to describe here is reasonably efficient, provided that there is a hyper-fast 1D box-based blur routine at one’s disposal (more on that in a future post). The algorithm is quite straightforward to implement, and also has the beautiful property of being able to do both circular and radial blur at the same time.</p>
 
@@ -1226,50 +1283,50 @@ Transport Algorithm</a></p>
 <li>It is not really necessary to create the transformed polar image, which is (much) larger than the original. One can feed the 1D blur with transformed pixels directly, and save some memory. Doing so doesn’t cause a performance penalty, because the algorithm runs through each spoke only once.</li>
 </ul>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/15/randomwalk-sss.html">Random-walk SSS</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/15/randomwalk-sss.html" class="u-url"><time class="dt-published" datetime="2022-01-15 01:10:00 &#43;0200">Jan 15, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/15/randomwalk-sss.html" class="u-url"><time class="dt-published" datetime="2022-01-15 01:10:00 &#43;0200">Jan 15, 2022</time></a>
 
-        <div class="e-content">
-         	<p>Arion, predecesor of Maverick Render, was already doing &ldquo;random-walk&rdquo; volume and SSS rendering long before the term random-walk even became trendy.</p>
+		<div class="e-content">
+			 <p>Arion, predecesor of Maverick Render, was already doing &ldquo;random-walk&rdquo; volume and SSS rendering long before the term random-walk even became trendy.</p>
 
 <p>This is a graph plotted by some simulation code I prototyped way back during the R&amp;D phase (circa 2014). Each wavelength (simplified to RGB in the plot) traverses the media with different stochastic statistics.</p>
 
 <p><img src="uploads/2022/a0dd1496bf.jpg" width="600" height="450" alt="" /></p>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/14/legendre-polynomials-because.html">Legendre polynomials</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/14/legendre-polynomials-because.html" class="u-url"><time class="dt-published" datetime="2022-01-14 23:39:00 &#43;0200">Jan 14, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/14/legendre-polynomials-because.html" class="u-url"><time class="dt-published" datetime="2022-01-14 23:39:00 &#43;0200">Jan 14, 2022</time></a>
 
-        <div class="e-content">
-         	<p><a href="https://en.wikipedia.org/wiki/Legendre_polynomials">Legendre polynomials</a>. Because&hellip; Why not?</p>
+		<div class="e-content">
+			 <p><a href="https://en.wikipedia.org/wiki/Legendre_polynomials">Legendre polynomials</a>. Because&hellip; Why not?</p>
 
 <p><img src="uploads/2022/412a9abc3b.png" width="256" height="256" alt="" /></p>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/14/215738.html">Anatomy of a PE (2012-10-30)</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/14/215738.html" class="u-url"><time class="dt-published" datetime="2022-01-14 22:57:00 &#43;0200">Jan 14, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/14/215738.html" class="u-url"><time class="dt-published" datetime="2022-01-14 22:57:00 &#43;0200">Jan 14, 2022</time></a>
 
-        <div class="e-content">
-         	
+		<div class="e-content">
+			 
 
 <p><strong>[EDIT] This post was migrated from my blog from 2011&hellip;</strong></p>
 
@@ -1344,18 +1401,18 @@ Transport Algorithm</a></p>
 
 <p><strong>[EDIT] I have made significant progress in this area in the 10+ years since I wrote this. But Part II of this post never saw the light of day. Spare time is scarce.</strong></p>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/14/215617.html">Code fortification (2012-10-17)</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/14/215617.html" class="u-url"><time class="dt-published" datetime="2022-01-14 22:56:00 &#43;0200">Jan 14, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/14/215617.html" class="u-url"><time class="dt-published" datetime="2022-01-14 22:56:00 &#43;0200">Jan 14, 2022</time></a>
 
-        <div class="e-content">
-         	<p><strong>[EDIT] This post was migrated from my blog from 2011&hellip;</strong></p>
+		<div class="e-content">
+			 <p><strong>[EDIT] This post was migrated from my blog from 2011&hellip;</strong></p>
 
 <p>Lately, I’ve been reading a lot about code fortification, and low-level debugging. Here are some of the most interesting links I’ve found. They’re all worth reading if you fancy hardcore OS internals and such:</p>
 
@@ -1379,18 +1436,18 @@ Transport Algorithm</a></p>
 
 <p>This all brings me back to my teenager years coding in x86 assembly language.</p>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/14/212534.html">Index-Of-Refraction (2011-10-15)</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/14/212534.html" class="u-url"><time class="dt-published" datetime="2022-01-14 22:25:00 &#43;0200">Jan 14, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/14/212534.html" class="u-url"><time class="dt-published" datetime="2022-01-14 22:25:00 &#43;0200">Jan 14, 2022</time></a>
 
-        <div class="e-content">
-         	<p><strong>[EDIT] This post was migrated from my blog from 2011&hellip;</strong></p>
+		<div class="e-content">
+			 <p><strong>[EDIT] This post was migrated from my blog from 2011&hellip;</strong></p>
 
 <p>This all below is stuff that kids study in school. :)</p>
 
@@ -1433,35 +1490,35 @@ Transport Algorithm</a></p>
 
 <video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/0f9a215aa8.mov" width="640" height="213" poster="https://www.brashandplucky.com/uploads/2022/83b8d73cd8.png" preload="none"></video>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/14/edit-this-post.html">The cosine lobe (2021-10-12)</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/14/edit-this-post.html" class="u-url"><time class="dt-published" datetime="2022-01-14 22:12:00 &#43;0200">Jan 14, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/14/edit-this-post.html" class="u-url"><time class="dt-published" datetime="2022-01-14 22:12:00 &#43;0200">Jan 14, 2022</time></a>
 
-        <div class="e-content">
-         	<p><strong>[EDIT] This post was migrated from my blog from 2011&hellip;</strong></p>
+		<div class="e-content">
+			 <p><strong>[EDIT] This post was migrated from my blog from 2011&hellip;</strong></p>
 
 <p>Testing image/video uploads.</p>
 
 <video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/cf29dbceb3.mov" width="512" height="256" poster="https://www.brashandplucky.com/uploads/2022/968506d58e.png" preload="none"></video>
 
-        </div>
-      </div>
-    
-      <div class="h-entry">
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
 		
 			<h1><a href="https://www.brashandplucky.com/2022/01/14/hello-again.html">Hello again!</a></h1>
 		
 
-        <a href="https://www.brashandplucky.com/2022/01/14/hello-again.html" class="u-url"><time class="dt-published" datetime="2022-01-14 19:35:00 &#43;0200">Jan 14, 2022</time></a>
+		<a href="https://www.brashandplucky.com/2022/01/14/hello-again.html" class="u-url"><time class="dt-published" datetime="2022-01-14 19:35:00 &#43;0200">Jan 14, 2022</time></a>
 
-        <div class="e-content">
-         	<p>Like most &ldquo;computer people&rdquo; I&rsquo;ve had some attempts over the years to manage a personal website, then a blog, then various social media accounts, etc&hellip; to quickly realize with each attempt that I don&rsquo;t have the time, and to some extent, the will or need to keep on posting. I am always way too busy for <em>non-productive</em> stuff.</p>
+		<div class="e-content">
+			 <p>Like most &ldquo;computer people&rdquo; I&rsquo;ve had some attempts over the years to manage a personal website, then a blog, then various social media accounts, etc&hellip; to quickly realize with each attempt that I don&rsquo;t have the time, and to some extent, the will or need to keep on posting. I am always way too busy for <em>non-productive</em> stuff.</p>
 
 <p>On the other hand, pretty much like GitHub itself, there is some true value in archiving and organizing images, results, etc&hellip; of projects you&rsquo;ve worked on, even if just to build some sort of &ldquo;historical archive&rdquo; of your journey as a researcher.</p>
 
@@ -1471,9 +1528,9 @@ Transport Algorithm</a></p>
 
 <p>Godspeed!</p>
 
-        </div>
-      </div>
-    
+		</div>
+	  </div>
+	
 
 </div>
 
