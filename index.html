@@ -24,6 +24,62 @@
 	
 	  <div class="h-entry">
 		
+			<h1><a href="https://www.brashandplucky.com/2022/05/30/qrns-in-the.html">QRNs in the unit square/circle/sphere</a></h1>
+		
+
+		<a href="https://www.brashandplucky.com/2022/05/30/qrns-in-the.html" class="u-url"><time class="dt-published" datetime="2022-05-30 23:52:03 &#43;0200">May 30, 2022</time></a>
+
+		<div class="e-content">
+			 
+
+<p>Basic concepts here, but worth refreshing.</p>
+
+<p>Very often in Computer Graphics (in Monte Carlo integration in general) you need to sample <code>N</code> points uniformly over the surface of a square, a disc, or a sphere.</p>
+
+<p>Depending on many (many!) factors such as how critical the <em>quality</em> of the random distribution needs to be, performance or code simplicity considerations, availability of a high-quality randomization seed, etc&hellip; one may choose one method or another. There are plenty of options, each with their own strengths and weaknesses.</p>
+
+<p>In this post I will talk about:</p>
+
+<ul>
+<li>The equal-area transform to turn a pair of uniformly distributed random numbers in the unit square into points uniformly distributed over the surface of the the unit disc/sphere.</li>
+<li>A super-simple method to generate <code>N</code> points that uniformly cover the unit square (disc/sphere).</li>
+</ul>
+
+<h2 id="equal-area-transform">Equal-Area transform</h2>
+
+<h2 id="fibonacci-lattice">Fibonacci lattice</h2>
+
+<h3 id="fibonacci-lattice-1">Fibonacci lattice</h3>
+
+<video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/35b62eb770.mp4" width="272" height="272" poster="https://www.brashandplucky.com/uploads/2022/e9de54485e.png" preload="none"></video>
+
+<video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/ee6891e7ff.mp4" width="272" height="272" poster="https://www.brashandplucky.com/uploads/2022/e434f74b85.png" preload="none"></video>
+
+<video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/68c5593aa0.mp4" width="272" height="272" poster="https://www.brashandplucky.com/uploads/2022/689c5fa4a6.png" preload="none"></video>
+
+<p>As a bonus, these videos below are generated like the ones above, but instead of using the Fibonacci lattice, they are using a uniformly distributed QRN generator (the popular and very strong <a href="https://en.wikipedia.org/wiki/Mersenne_Twister">Mersenne Twister</a>) and the <a href="https://en.wikipedia.org/wiki/Van_der_Corput_sequence">van Der Corput</a> stratified series (<a href="https://en.wikipedia.org/wiki/Halton_sequence">Halton</a>, actually, using primes 2 and 3).</p>
+
+<h3 id="mersenne-twister-random">Mersenne Twister (Random)</h3>
+
+<video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/c35371a5af.mp4" width="272" height="272" poster="https://www.brashandplucky.com/uploads/2022/1f8a751bef.png" preload="none"></video>
+
+<video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/05eef5bd66.mp4" width="272" height="272" poster="https://www.brashandplucky.com/uploads/2022/38c98c4e8f.png" preload="none"></video>
+
+<video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/a024df8b6d.mp4" width="272" height="272" poster="https://www.brashandplucky.com/uploads/2022/b0d4f30d6c.png" preload="none"></video>
+
+<h3 id="halton-stratified">Halton (Stratified)</h3>
+
+<video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/38aba8c483.mp4" width="272" height="272" poster="https://www.brashandplucky.com/uploads/2022/589d8c7a77.png" preload="none"></video>
+
+<video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/f72504ff5a.mp4" width="272" height="272" poster="https://www.brashandplucky.com/uploads/2022/1b4d011500.png" preload="none"></video>
+
+<video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/a8df1067d7.mp4" width="272" height="272" poster="https://www.brashandplucky.com/uploads/2022/64d7589978.png" preload="none"></video>
+
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
+		
 			<h1><a href="https://www.brashandplucky.com/2022/05/05/float-int-quiz.html">Recklessly encoding int as float</a></h1>
 		
 
