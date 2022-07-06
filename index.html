@@ -24,7 +24,91 @@
 	
 	  <div class="h-entry">
 		
-			<h1><a href="https://www.brashandplucky.com/2022/05/30/qrns-in-the.html">QRNs in the unit square/circle/sphere</a></h1>
+			<h1><a href="https://www.brashandplucky.com/2022/07/07/barycentric-coords-in.html">Barycentric coords in triangle sweeps</a></h1>
+		
+
+		<a href="https://www.brashandplucky.com/2022/07/07/barycentric-coords-in.html" class="u-url"><time class="dt-published" datetime="2022-07-07 00:02:55 &#43;0200">Jul 7, 2022</time></a>
+
+		<div class="e-content">
+			 <p>A &ldquo;triangle sweep&rdquo; can be defined as 2 triangles <code>(A,B,C)</code> and <code>(D,E,F)</code> and the bilinear patches formed at the  sides of both triangles. It&rsquo;s kind of a &ldquo;twisted&rdquo; triangular prism.</p>
+
+<p>We can define some sort of <code>(u,v,w)</code> barycentric coordinates here, such that each point <code>P</code> interior to the sweep could be written as <code>P=(A+AD*w)*u+(B+BE*w)*v+(C+CF*w)*(1-u-v)</code>.</p>
+
+<p>As soon as the sweep is &ldquo;twisted&rdquo; the behavior of those <em>barycentric</em> coords is no longer linear. <em>i.e.,</em> linear motion in the &lsquo;(u,v,w)&rsquo; space does not translate to linear motion in 3D space and viceversa. Things get even uglier. If the sweep is twisted enough, <code>P</code> may have a non-unique barycentric representation.</p>
+
+<p>However these coordinates can be useful in certain applications.</p>
+
+<p>One way to find <code>(u,v,w)</code> for a given <code>P</code> is to solve for <code>w</code> first (the red plane in the video below) and then find <code>u</code> and <code>v</code> as regular barycentrics in the triangular section. After massaging the numbers a bit, solving for <code>w</code> ends up being a <a href="cubic equation">https://en.wikipedia.org/wiki/Cubic_equation</a>, which is represented in orange in the video.</p>
+
+<p>We&rsquo;re only interested in solutions where <code>w IN [0..1]</code>.</p>
+
+<video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/10f081fe8b.mp4" width="512" height="512" poster="https://www.brashandplucky.com/uploads/2022/643d7ec500.png" preload="none"></video>
+
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
+		
+			<h1><a href="https://www.brashandplucky.com/2022/06/18/octahedron-unitvector-encoding.html">Octahedron unit-vector encoding</a></h1>
+		
+
+		<a href="https://www.brashandplucky.com/2022/06/18/octahedron-unitvector-encoding.html" class="u-url"><time class="dt-published" datetime="2022-06-18 00:12:10 &#43;0200">Jun 18, 2022</time></a>
+
+		<div class="e-content">
+			 
+
+<p>There are many situations in Computer Graphics where you may need to store massive amounts of unit-length vectors (<em>e.g.,</em> directions, surface normals, &hellip;). The normals AOV in a G-Buffer, incoming directions in a Photon map, or uploading a 3D model to the GPU for rendering are situations that greatly benefit from a bit-efficient encoding for normals.</p>
+
+<h2 id="spherical-coordinates-encoding">Spherical coordinates encoding</h2>
+
+<p>The straightforward way to encode a normal is to store its <code>(x,y,z)</code> coordinates, which takes <code>3x32=96</code> bits in single-precision floating-point. This naive approach doesn&rsquo;t take advantage of the fact that in normals or directions the vector length is irrelevant. So assuming unit length, you may use <a href="https://en.wikipedia.org/wiki/Spherical_coordinate_system">spherical coordinates</a> <code>(theta, phi)</code> and encode each normal with 2 numbers instead of 3.</p>
+
+<p>Since <code>(theta, phi)</code> have a <code>[0..2pi]</code> and <code>[0..pi]</code> range, it sounds reasonable to quantize its values using fixed-point math. This way both angles become a couple of integers of, say, 16-bit each, with their ranges turned into <code>[0..65535]</code>. Note that this gives twice as much resolution to <code>phi</code> but that&rsquo;s fine. We have achieved a reasonably fine-grained <code>16+16=32-bit</code> encoding. Depending on how tolerable precision losses are in your application, you may go even lower (<em>e.g.,</em> <code>12+12=24-bit</code>, or even <code>8+8=16-bit</code>).</p>
+
+<p>The problem with this simple approach is that spherical coordinates are not an equal-area transform, as they concentrate points near the poles:</p>
+
+<p><img src="uploads/2022/873b2d9fa1.png" width="600" height="600" alt="" /></p>
+
+<p><em>Spherical coordinates encoding:
+phi gets more precision than theta, and density between the equator/poles is highly uneven.</em></p>
+
+<h2 id="octahedron-encoding">Octahedron encoding</h2>
+
+<p>A smarter solution which produces a much more even distribution, while being strikingly simple and more efficient computationally (no trigonometry whatsoever) is <em>octahedron encoding</em>.</p>
+
+<p><img src="uploads/2022/8dd7d5f179.png" width="600" height="600" alt="" /></p>
+
+<p><em>Octahedron encoding: The distribution is pretty even.</em></p>
+
+<p>The idea is to project positions in the sphere (unit vectors) onto a sphere-centered octahedron. And then piece together the 8 faces of the octahedron in the unit cube. This diagram should be self-explanatory.</p>
+
+<p><img src="uploads/2022/9d8daaf83d.png" width="600" height="249" alt="" /></p>
+
+<p>Reference: <a href="https://www.readkong.com/page/octahedron-environment-maps-6054207">Octahedron environment maps</a></p>
+
+<h2 id="fibonacci-encoding">Fibonacci encoding</h2>
+
+<p>Recently I have been using the Fibonacci lattice here and there and had the idea to use its equal-area spherical flavor for normal encoding. After googling a bit I came across this paper, so somebody had the idea first:</p>
+
+<p><a href="https://www.jcgt.org/published/0009/04/02/">Unorganized Unit Vectors Sets Quantization</a></p>
+
+<p>Actually, pulling from this thread I also came across these Shadertoy samples by Íñigo Quilez. They visualize what happens with either method as more bits are budgeted for normals encoding:</p>
+
+<p><em>Fibonacci:</em> <a href="https://www.shadertoy.com/view/4t2XWK">https://www.shadertoy.com/view/4t2XWK</a></p>
+
+<p><em>Octahedron:</em> <a href="https://www.shadertoy.com/view/Mtfyzl">https://www.shadertoy.com/view/Mtfyzl</a></p>
+
+<p><img src="uploads/2022/6a0ed723f7.png" width="600" height="600" alt="" />
+<em>Fibonacci encoding: Looks great, but comes at a price.</em></p>
+
+<p>This looks elegant (pretty even!). Unfortunately the implementation to encode/decode unit-vectors with <code>n</code> bits is rather convoluted and involves <code>N=2^n</code>  and <code>1/N</code>. As soon as <code>n&gt;24</code> or so numerical degradation makes this solution unusable in single-precision. Also, this method is significantly slower than octahedron encoding, and while the distribution looks prettier, the difference in practice is negligible.</p>
+
+		</div>
+	  </div>
+	
+	  <div class="h-entry">
+		
+			<h1><a href="https://www.brashandplucky.com/2022/05/30/qrns-in-the.html">QRNs in the unit square/disk/sphere</a></h1>
 		
 
 		<a href="https://www.brashandplucky.com/2022/05/30/qrns-in-the.html" class="u-url"><time class="dt-published" datetime="2022-05-30 23:52:03 &#43;0200">May 30, 2022</time></a>
@@ -32,24 +116,46 @@
 		<div class="e-content">
 			 
 
-<p>Basic concepts here, but worth refreshing.</p>
+<p>Basic concepts in this post, but worth refreshing.</p>
 
-<p>Very often in Computer Graphics (in Monte Carlo integration in general) you need to sample <code>N</code> points uniformly over the surface of a square, a disc, or a sphere.</p>
+<p>Very often in Computer Graphics (in Monte Carlo integration in particular) you need to sample <code>N</code> points uniformly over the surface of a square, a disk, or a sphere.</p>
 
-<p>Depending on many (many!) factors such as how critical the <em>quality</em> of the random distribution needs to be, performance or code simplicity considerations, availability of a high-quality randomization seed, etc&hellip; one may choose one method or another. There are plenty of options, each with their own strengths and weaknesses.</p>
+<p>Depending on many (many!) factors such as how critical the <em>quality</em> of the random distribution needs to be, performance or code simplicity considerations, availability of a high-quality randomization seed, etc&hellip; one may choose one method or another. There are plenty of options, and each comes with their own strengths and weaknesses.</p>
 
 <p>In this post I will talk about:</p>
 
 <ul>
-<li>The equal-area transform to turn a pair of uniformly distributed random numbers in the unit square into points uniformly distributed over the surface of the the unit disc/sphere.</li>
-<li>A super-simple method to generate <code>N</code> points that uniformly cover the unit square (disc/sphere).</li>
+<li>The Equal-Area transform to turn a pair of uniformly distributed random numbers in the unit square into uniformly distributed points over the surface of the the unit disk/sphere.</li>
+<li>A super-simple Fibonacci-based method to generate <code>N</code> points that uniformly cover the unit square (and hence the unit disk/sphere).</li>
 </ul>
 
 <h2 id="equal-area-transform">Equal-Area transform</h2>
 
+<p>Given <code>u</code> a uniform distribution of 2D points in the surface of the unit square, the transforms to produce uniform distributions of 2D points in the unit disk, or 3D points in the unit sphere are:</p>
+
+<p><img src="uploads/2022/b8ef192236.png" width="600" height="255" alt="" /></p>
+
+<p>There are very clean-cut explanations for these on the always fantastic wolfram.com website.</p>
+
+<p><a href="https://mathworld.wolfram.com/DiskPointPicking.html">Disk Point Picking</a></p>
+
+<p><a href="https://mathworld.wolfram.com/SpherePointPicking.html">Sphere Point Picking</a></p>
+
+<p>These are based on the area (disk) and solid angle (sphere) differential elements.</p>
+
 <h2 id="fibonacci-lattice">Fibonacci lattice</h2>
 
-<h3 id="fibonacci-lattice-1">Fibonacci lattice</h3>
+<p>The algorithm to generate the first <code>N</code> points in the Fibonacci lattice goes like this:</p>
+
+<p><img src="uploads/2022/b7a0d42976.png" width="600" height="80" alt="" /></p>
+
+<p>This produces a stratified distribution of points in the unit square.</p>
+
+<p>The beauty of this method is that it&rsquo;s a strikingly simple couple of divs and a mod. Unlike most series generators, however, it requires that you know <code>N</code> beforehand. Other usual methods like the ones depicted later in this post are incremental, so each new sample is spawned next to the previous ones. The Fibonacci lattice, on the other hand, &ldquo;squeezes&rdquo; previous samples as new ones come in, as illustrated by the videos below.</p>
+
+<h3 id="fibonacci-lattice-square-disk-sphere">Fibonacci lattice (square/disk/sphere)</h3>
+
+<p>This videos simply plug the Fibonacci lattice formula to the Equal-Area transforms above.</p>
 
 <video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/35b62eb770.mp4" width="272" height="272" poster="https://www.brashandplucky.com/uploads/2022/e9de54485e.png" preload="none"></video>
 
@@ -57,23 +163,23 @@
 
 <video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/68c5593aa0.mp4" width="272" height="272" poster="https://www.brashandplucky.com/uploads/2022/689c5fa4a6.png" preload="none"></video>
 
-<p>As a bonus, these videos below are generated like the ones above, but instead of using the Fibonacci lattice, they are using a uniformly distributed QRN generator (the popular and very strong <a href="https://en.wikipedia.org/wiki/Mersenne_Twister">Mersenne Twister</a>) and the <a href="https://en.wikipedia.org/wiki/Van_der_Corput_sequence">van Der Corput</a> stratified series (<a href="https://en.wikipedia.org/wiki/Halton_sequence">Halton</a>, actually, using primes 2 and 3).</p>
+<p>As a bonus, the next videos are generated like the ones above, but using a uniformly distributed QRN generator (the popular and very strong <a href="https://en.wikipedia.org/wiki/Mersenne_Twister">Mersenne Twister</a>) and the <a href="https://en.wikipedia.org/wiki/Van_der_Corput_sequence">van Der Corput</a> stratified series (in particular, the <a href="https://en.wikipedia.org/wiki/Halton_sequence">Halton</a> sequence using primes 2 and 3).</p>
 
 <h3 id="mersenne-twister-random">Mersenne Twister (Random)</h3>
 
-<video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/c35371a5af.mp4" width="272" height="272" poster="https://www.brashandplucky.com/uploads/2022/1f8a751bef.png" preload="none"></video>
+<video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/0b88aba02a.mp4" width="272" height="272" poster="https://www.brashandplucky.com/uploads/2022/6f66d56b8d.png" preload="none"></video>
 
-<video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/05eef5bd66.mp4" width="272" height="272" poster="https://www.brashandplucky.com/uploads/2022/38c98c4e8f.png" preload="none"></video>
+<video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/7a727f2f60.mp4" width="272" height="272" poster="https://www.brashandplucky.com/uploads/2022/60b7d8b29a.png" preload="none"></video>
 
-<video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/a024df8b6d.mp4" width="272" height="272" poster="https://www.brashandplucky.com/uploads/2022/b0d4f30d6c.png" preload="none"></video>
+<video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/d86ab4ab2d.mp4" width="272" height="272" poster="https://www.brashandplucky.com/uploads/2022/4b8dad598c.png" preload="none"></video>
 
 <h3 id="halton-stratified">Halton (Stratified)</h3>
 
-<video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/38aba8c483.mp4" width="272" height="272" poster="https://www.brashandplucky.com/uploads/2022/589d8c7a77.png" preload="none"></video>
+<video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/dd5d08e395.mp4" width="272" height="272" poster="https://www.brashandplucky.com/uploads/2022/972d2c576d.png" preload="none"></video>
 
-<video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/f72504ff5a.mp4" width="272" height="272" poster="https://www.brashandplucky.com/uploads/2022/1b4d011500.png" preload="none"></video>
+<video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/50a12d88bc.mp4" width="272" height="272" poster="https://www.brashandplucky.com/uploads/2022/5b3bf51798.png" preload="none"></video>
 
-<video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/a8df1067d7.mp4" width="272" height="272" poster="https://www.brashandplucky.com/uploads/2022/64d7589978.png" preload="none"></video>
+<video controls="controls" playsinline="playsinline" src="https://www.brashandplucky.com/uploads/2022/50525b36ed.mp4" width="272" height="272" poster="https://www.brashandplucky.com/uploads/2022/aedf8d607f.png" preload="none"></video>
 
 		</div>
 	  </div>
@@ -86,7 +192,9 @@
 		<a href="https://www.brashandplucky.com/2022/05/05/float-int-quiz.html" class="u-url"><time class="dt-published" datetime="2022-05-05 19:57:00 &#43;0200">May 5, 2022</time></a>
 
 		<div class="e-content">
-			 <p><em>Quiz:</em> Does this loop end, and if it does, what is the value of <code>k</code> after the loop? (assuming IEEE-754 and usual 32-bit semantics for <code>int/float</code>)</p>
+			 
+
+<p><em>Quiz:</em> Does this loop end, and if it does, what is the value of <code>k</code> after the loop? (assuming IEEE-754 and usual 32-bit semantics for <code>int/float</code>)</p>
 
 <p><img src="uploads/2022/cc2287c141.png" width="600" height="155" alt="" /></p>
 
@@ -96,23 +204,21 @@
 
 <p>I said <em>hypothetically</em> because generally speaking I would never do such thing. Carelessly casting between <code>int</code> and <code>float</code> (without an explicit <code>floor</code>, <code>ceil</code>, <code>trunc</code>, <code>round</code>&hellip;) is often a sign of lousy coding, unless performance is at stake and you know well what you are doing.</p>
 
-<p>However, I came across the situation in Unity recently, where the <code>Vertex ID</code> node in their Shader Graph hands over <code>SV_VertexID</code> as a <code>float</code> (disappointed face :-P). I would&rsquo;ve expected an <code>uint/int</code> output or a <code>float</code> that you could reinterpret-cast to retrieve the raw <code>SV_VertexID</code> bits with <a href="https://docs.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-asuint">asuint()</a>. But nope. You get a <code>float</code> which seemingly carries <code>(float)SV_VertexID</code>.</p>
+<p>However, I came across the situation in Unity recently, where the <code>Vertex ID</code> node in their Shader Graph hands over <code>SV_VertexID</code> as a <code>float</code> (disappointed face :-P). I would&rsquo;ve expected an <code>uint/int</code> output or a <code>float</code> that you could reinterpret-cast to retrieve the raw <code>SV_VertexID</code> bits with <a href="https://docs.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-asuint">asuint()</a>. But nope. You are handed over a <code>float</code> which seemingly carries <code>(float)SV_VertexID</code>.</p>
 
 <p>One may recklessly use this <code>float</code> to index a <code>StructuredBuffer</code> ignoring the way static-casting works. This is one case where ignorance is bliss, because the <code>float</code> received exactly matches the original <code>int</code> as long as the original value is <code>&lt;=2^24</code>. That is, as long as you are dealing with fewer than (roughly) 16.7 million vertices, which is usually the case.</p>
 
 <p>I believe that Unity&rsquo;s ShaderGraph doesn&rsquo;t support <code>int/uint</code> as In/Out values between nodes, so I guess that the <code>Vertex ID</code> and <code>Instance ID</code> nodes just static-cast the corresponding <code>SV_...</code> value to a float. But it would be better (in the <em>pedantic</em> sense) to reinterpret the bit pattern of the raw values with <code>asfloat</code> and then let the user retrieve them with <code>asint()/asuint()</code>.</p>
 
-<p>&ndash;</p>
+<h2 id="reinterpret-cast-between-int-float-in-hsls">reinterpret-cast between int/float in HSLS</h2>
 
-<p><strong>reinterpret-cast between int/float in HSLS:</strong></p>
+<p><a href="https://docs.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-asint">asint()</a></p>
 
-<p><a href="https://docs.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-asint">asint()</a>
-<a href="https://docs.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-asuint">asuint()</a>
-<a href="https://docs.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-asfloat">asfloat()</a></p>
+<p><a href="https://docs.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-asuint">asuint()</a></p>
 
-<p>&ndash;</p>
+<p><a href="https://docs.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-asfloat">asfloat()</a></p>
 
-<p><strong>A (loose) explanation of the 2^24 limit:</strong></p>
+<h2 id="a-loose-explanation-of-the-2-24-limit">A (loose) explanation of the 2^24 limit</h2>
 
 <p>This is the <a href="https://en.wikipedia.org/wiki/IEEE_754">IEEE-754 standard</a> for floating-point numbers, as described in Wikipedia:</p>
 
@@ -152,7 +258,7 @@
 
 <p>But the next integer <code>1.{23x0s.1}</code> can&rsquo;t be encoded in a 23-bit <code>M</code>. So from 2^24 onwards, there is necessarily a loss. Some integers beyond 2^24 (such as powers-of-2) will be luckily encoded exactly by <code>float</code>. But not all consecutive numbers will. Actually, <code>2^24+1</code> is the first integer that won&rsquo;t.</p>
 
-<p>As always, <em>apologies for any mistakes in any of my posts</em>.</p>
+<p>Whoa! As always, <em>apologies for any mistakes in any of my posts</em>.</p>
 
 <p>&ndash;</p>
 
@@ -160,7 +266,7 @@
 
 <p><img src="uploads/2022/f0b41d494d.png" width="600" height="130" alt="" /></p>
 
-<p>Hence double can encode exactly all integers in the range <code>[-2^53..+2^53]</code>.</p>
+<p>Hence <code>double</code> can encode exactly all integers in the range <code>[-2^53..+2^53]</code>.</p>
 
 		</div>
 	  </div>
@@ -259,7 +365,7 @@
 		<div class="e-content">
 			 <p>A couple of weekends ago I was tinkering with fluid dynamics and implemented a few compute shaders in Unity. Among the ones I implemented, my favorite is the Lattice-Boltzmann Method featured here.</p>
 
-<p><img src="uploads/2022/407fc47c9b.jpg" width="575" height="345" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/407fc47c9b.jpg" width="575" height="345" alt="" /></p>
 
 <p>This early implementation allows to draw SDF entities in the simulation space behaving as blockers, inflows or outflows. I intend to expand on the features, but most likely at a slow pace, because this is a no-rush side-project. But I definitely wish to post now and then about my progress.</p>
 
@@ -280,13 +386,13 @@
 		<div class="e-content">
 			 <p>Some pet project I am making some progress on. More info soon. Definitely. Maybe.</p>
 
-<p><img src="uploads/2022/49bd635e27.jpg" width="600" height="576" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/49bd635e27.jpg" width="600" height="576" alt="" /></p>
 
 <p><strong>[EDIT] I had to install a micro.blog plug-in so Twitter cards display the main post image when cross-posting to Twitter.</strong> Apologies for the multiple test posts.</p>
 
 <p><strong>[EDIT] Here&rsquo;s a hint.</strong> It&rsquo;s a cutsie CSG-based Solid modeling experiment in Unity Editor.</p>
 
-<p><img src="uploads/2022/ce58ca5845.gif" width="600" height="623" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/ce58ca5845.gif" width="600" height="623" alt="" /></p>
 
 		</div>
 	  </div>
@@ -303,7 +409,7 @@
 
 <p>Below: A little demo I&rsquo;ve written that supports an extended flavor of <a href="https://en.wikipedia.org/wiki/Conway_polyhedron_notation">Conway&rsquo;s notation</a> for polyhedra: <code>adotaocD</code>.</p>
 
-<p><img src="uploads/2022/e9cee91a82.gif" width="533" height="533" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/e9cee91a82.gif" width="533" height="533" alt="" /></p>
 
 <p><strong>[EDIT] I paused this pet project for the time being&hellip;</strong> because the 2022.2 release of <a href="https://maverickrender.com/">Maverick</a> has virtually blown all my productivity hours away. But I plan to write some entries on topological operators at some point further into this year.</p>
 
@@ -345,15 +451,15 @@ Transport Algorithm</a></p>
 
 <p><em>Mutating in QRN tuple space without plarge</em> - <a href="https://youtu.be/55CXyRqXIJU">Watch on Youtube</a></p>
 
-<p><img src="uploads/2022/51d1741ea4.png" width="512" height="512" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/51d1741ea4.png" width="512" height="512" alt="" /></p>
 
 <p><em>Mutating in QRN tuple space with plarge</em> - <a href="https://youtu.be/RJIDema8mz4">Watch on Youtube</a></p>
 
-<p><img src="uploads/2022/4e2da71675.png" width="512" height="512" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/4e2da71675.png" width="512" height="512" alt="" /></p>
 
 <p><em>MLT reconstructing a grayscale image</em> - <a href="https://youtu.be/WYvMGtWp4N4">Watch on Youtube</a></p>
 
-<p><img src="uploads/2022/c8db37186e.png" width="550" height="362" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/c8db37186e.png" width="550" height="362" alt="" /></p>
 
 <p>Implementing MLT successfully in <a href="https://maverickrender.com">our render engine</a> did require some specialization in our sampling routines. I won&rsquo;t get into the details, but basically, since mutations happen in the random tuples that generate the paths, you expect continuous mutations in the tuples to produce continuous changes in the generated paths. So all samplers involved must avoid discontinuities in the <code>[QRN&lt;-&gt;path]</code> bijection.</p>
 
@@ -361,11 +467,11 @@ Transport Algorithm</a></p>
 
 <p>Some MLT-heavy images rendered in Arion back then:</p>
 
-<p><img src="uploads/2022/dc95e60f9e.jpg" width="600" height="429" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/dc95e60f9e.jpg" width="600" height="429" alt="" /></p>
 
-<p><img src="uploads/2022/94c3cb35a8.jpg" width="600" height="337" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/94c3cb35a8.jpg" width="600" height="337" alt="" /></p>
 
-<p><img src="uploads/2022/45f4967f73.jpg" width="600" height="337" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/45f4967f73.jpg" width="600" height="337" alt="" /></p>
 
 		</div>
 	  </div>
@@ -384,7 +490,7 @@ Transport Algorithm</a></p>
 
 <p><em>Uniform 2D distribution vs. Halton series for the first 2 dimensions</em></p>
 
-<p><img src="uploads/2022/c5fd50d371.png" width="600" height="300" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/c5fd50d371.png" width="600" height="300" alt="" /></p>
 
 <p>To the left: 32768 points in a 512×512 image using a uniform random number generator (Mersenne Twister). To the right, the first 32768 pairs in the Halton series, using dimensions #0 and #1. Click to enlarge!</p>
 
@@ -407,7 +513,7 @@ Transport Algorithm</a></p>
 
 <p><em>The 9+1 mipmap levels in the 512×512 Lena image</em></p>
 
-<p><img src="uploads/2022/8a609e57da.png" width="512" height="768" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/8a609e57da.png" width="512" height="768" alt="" /></p>
 
 <p>There are many smart, efficient, and relatively simple algorithms based on multi-resolution image pyramids. Modern GPUs can deal with upscaling and downscaling of RGB/A images at the speed of light, so usually such algorithms can be implemented at interactive or even real-time framerates.</p>
 
@@ -415,7 +521,7 @@ Transport Algorithm</a></p>
 
 <p><em>Upscaled mipmap levels</em></p>
 
-<p><img src="uploads/2022/8d745486da.png" width="600" height="600" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/8d745486da.png" width="600" height="600" alt="" /></p>
 
 <p>Note the characteristic “blocky” (bi-linear) appearance, specially evident in the images of the second row.</p>
 
@@ -430,7 +536,7 @@ Transport Algorithm</a></p>
 
 <p><em>Mean pyramid (with holes)</em></p>
 
-<p><img src="uploads/2022/ab15c77d06.png" width="512" height="768" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/ab15c77d06.png" width="512" height="768" alt="" /></p>
 
 <p>Note that the analysis stage can stop as soon as a mip level doesn’t have any holes.</p>
 
@@ -438,7 +544,7 @@ Transport Algorithm</a></p>
 
 <p><em>Mean pyramid (filled)</em></p>
 
-<p><img src="uploads/2022/92cab1f783.png" width="512" height="768" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/92cab1f783.png" width="512" height="768" alt="" /></p>
 
 <h2 id="conclusions">Conclusions:</h2>
 
@@ -471,13 +577,13 @@ Transport Algorithm</a></p>
 
 <p><em>Aperture x Obstacle mask, rasterized @ 512×512</em></p>
 
-<p><img src="uploads/2022/0923ef842a.png" width="512" height="512" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/0923ef842a.png" width="512" height="512" alt="" /></p>
 
 <p>The Fourier Transform of that image, rasterized at that size in said 512×512 buffer, is the following.</p>
 
 <p><em>FT of the mask above</em></p>
 
-<p><img src="uploads/2022/91b6b3b6d3.png" width="512" height="512" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/91b6b3b6d3.png" width="512" height="512" alt="" /></p>
 
 <p>The faux-color is done on the magnitude of each complex number in the FT. All the FT images in this post are normalized equally, and offset to look “centered” around the mid-pixel.</p>
 
@@ -485,7 +591,7 @@ Transport Algorithm</a></p>
 
 <p><em>Resulting glare in ArionFX</em></p>
 
-<p><img src="uploads/2022/012e902dbf.png" width="480" height="320" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/012e902dbf.png" width="480" height="320" alt="" /></p>
 
 <p>&ndash;</p>
 
@@ -501,7 +607,7 @@ Transport Algorithm</a></p>
 
 <p><em>Rotation about the center</em></p>
 
-<p><img src="uploads/2022/a31a55c21f.png" width="600" height="600" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/a31a55c21f.png" width="600" height="600" alt="" /></p>
 
 <h3 id="translation-with-warp-around">Translation (with warp-around)</h3>
 
@@ -509,7 +615,7 @@ Transport Algorithm</a></p>
 
 <p><em>Invariance to translation</em></p>
 
-<p><img src="uploads/2022/09db31ab29.png" width="600" height="900" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/09db31ab29.png" width="600" height="900" alt="" /></p>
 
 <p>Let’s recall that the idea behind the FT is that <em>“any periodic function can be rewritten as a weighted sum of sines and cosines of different frequencies”</em>. Periodic being the keyword there.</p>
 
@@ -521,7 +627,7 @@ Transport Algorithm</a></p>
 
 <p><em>Exploded frequencies on tiling</em></p>
 
-<p><img src="uploads/2022/6ed11eb3b1.png" width="600" height="300" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/6ed11eb3b1.png" width="600" height="300" alt="" /></p>
 
 <h3 id="data-scaling">Data scaling</h3>
 
@@ -531,7 +637,7 @@ Transport Algorithm</a></p>
 
 <p><em>Inverse effect on scaling</em></p>
 
-<p><img src="uploads/2022/c7adf5446a.png" width="600" height="1200" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/c7adf5446a.png" width="600" height="1200" alt="" /></p>
 
 <p>In the particular case of glare (e.g., ArionFX) this means that the diffraction pattern becomes blurry if the iris is sampled small. Or, in other words, for a given iris, the sharpest diffraction pattern possible is achieved when the iris is sampled as large as the data buffer itself.</p>
 
@@ -554,11 +660,11 @@ Transport Algorithm</a></p>
 
 <p><em>Preetham et al. sky model</em></p>
 
-<p><img src="uploads/2022/6c9c260561.png" width="600" height="600" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/6c9c260561.png" width="600" height="600" alt="" /></p>
 
 <p><em>Hosek &amp; Wilkie sky model</em></p>
 
-<p><img src="uploads/2022/70e29da8dd.png" width="600" height="600" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/70e29da8dd.png" width="600" height="600" alt="" /></p>
 
 		</div>
 	  </div>
@@ -586,7 +692,7 @@ Transport Algorithm</a></p>
 
 <p><em>Raw 32-dimensional Halton hyper-cube</em></p>
 
-<p><img src="uploads/2022/cac06392ac.png" width="600" height="600" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/cac06392ac.png" width="600" height="600" alt="" /></p>
 
 <p>One can easily spot how some pairs exhibit an obvious pattern, while others fill their corresponding 2D area very densely. This happens more aggressively for higher dimensions (<em>i.e.,</em> to the right/bottom in the image) and for pairs formed with close components (<em>i.e.,</em> near the diagonal in the image). Click to enlarge!</p>
 
@@ -598,7 +704,7 @@ Transport Algorithm</a></p>
 
 <p><em>Scrambled 32-dimensional Halton hyper-cube</em></p>
 
-<p><img src="uploads/2022/2df80353ac.png" width="600" height="600" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/2df80353ac.png" width="600" height="600" alt="" /></p>
 
 <p>Now all the blocks in the grid look equally dense. Magic!</p>
 
@@ -621,9 +727,9 @@ Transport Algorithm</a></p>
 
 <p>In practice, the Sobel operator is simply a pair of 3×3 (separable) <em>convolution kernels</em>. One highlights the horizontal gradient/edges, and the other one highlights the vertical gradient/edges.</p>
 
-<p><img src="uploads/2022/628b3579aa.png" width="160" height="60" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/628b3579aa.png" width="160" height="60" alt="" /></p>
 
-<p><img src="uploads/2022/cf022b06bf.png" width="160" height="60" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/cf022b06bf.png" width="160" height="60" alt="" /></p>
 
 <p>In non-formal terms, and under certain theoretical assumptions, this is conceptually equivalent to computing the partial derivatives of the image with respect to x an y.</p>
 
@@ -631,7 +737,7 @@ Transport Algorithm</a></p>
 
 <p><em>Sobel operator</em></p>
 
-<p><img src="uploads/2022/b2d2de2218.png" width="600" height="681" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/b2d2de2218.png" width="600" height="681" alt="" /></p>
 
 <p>This grid presents:</p>
 
@@ -650,7 +756,7 @@ Transport Algorithm</a></p>
 
 <p>Sobel operator (Gaussian with sigma=2)</p>
 
-<p><img src="uploads/2022/cce8b82fd4.png" width="600" height="681" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/cce8b82fd4.png" width="600" height="681" alt="" /></p>
 
 <p>The Sobel operator is one of the most fundamental building blocks in feature detection in the field of Computer Vision.</p>
 
@@ -675,15 +781,15 @@ Transport Algorithm</a></p>
 
 <p>Here is the 1D Gaussian function:</p>
 
-<p><img src="uploads/2022/0a79850a48.png" width="136" height="31" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/0a79850a48.png" width="136" height="31" alt="" /></p>
 
 <p>Put in short, the <a href="https://en.wikipedia.org/wiki/Error_function">Error function</a> is the integral of the Gaussian function from 0 to a certain point x:</p>
 
-<p><img src="uploads/2022/545dcc77e5.png" width="139" height="22" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/545dcc77e5.png" width="139" height="22" alt="" /></p>
 
 <p>At least, that is the way the formula is presented by Wikipedia and <a href="https://mathworld.wolfram.com/Erf.html">Wolfram|Alpha</a>. But as soon as you try to work with it you find out that in order to really match the above Gaussian function, normalization and axis scaling must be taken care of:</p>
 
-<p><img src="uploads/2022/353905b96a.png" width="159" height="27" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/353905b96a.png" width="159" height="27" alt="" /></p>
 
 <p>The plots below display <code>G(x,sigma)</code> (bell-shaped) in blue, and <code>erf(x,sigma)</code> (S-shaped) in yellow.</p>
 
@@ -693,21 +799,21 @@ Transport Algorithm</a></p>
 
 <p><em>Discretized 1D Gaussian (sigma=0.5)</em></p>
 
-<p><img src="uploads/2022/7753576e75.png" width="512" height="512" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/7753576e75.png" width="512" height="512" alt="" /></p>
 
 <p><em>Discretized 1D Gaussian (sigma=1.0)</em></p>
 
-<p><img src="uploads/2022/4bef51783b.png" width="512" height="512" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/4bef51783b.png" width="512" height="512" alt="" /></p>
 
 <p><em>Discretized 1D Gaussian (sigma=1.5)</em></p>
 
-<p><img src="uploads/2022/6352091d75.png" width="512" height="512" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/6352091d75.png" width="512" height="512" alt="" /></p>
 
 <h3 id="doing-it-wrong">Doing it wrong:</h3>
 
 <p>Most implementations of Gaussian convolution kernels simply evaluate <code>G(x,sigma)</code> at the mid-point of each bin. This is a decent approximation that is also trivial to implement:</p>
 
-<p><img src="uploads/2022/fdd4889b6e.png" width="162" height="20" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/fdd4889b6e.png" width="162" height="20" alt="" /></p>
 
 <p>This value is represented in blue in the above plots.</p>
 
@@ -719,7 +825,7 @@ Transport Algorithm</a></p>
 
 <p>Assuming that one has an <code>erf</code> implementation at his disposal, the correct value for the bin <code>[a..b]</code> is:</p>
 
-<p><img src="uploads/2022/f461644e4a.png" width="232" height="17" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/f461644e4a.png" width="232" height="17" alt="" /></p>
 
 <p>This value is represented in red in the above plots.</p>
 
@@ -760,7 +866,7 @@ Transport Algorithm</a></p>
 
 <p>Here’s the 0-centered and un-normalized 1D Gaussian function:</p>
 
-<p><img src="uploads/2022/0b597462a0.png" width="103" height="26" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/0b597462a0.png" width="103" height="26" alt="" /></p>
 
 <p>The <em>sigma</em> parameter in the Gaussian function stretches the bell shape along the x axis. So it is quite straightforward to understand that if one downsamples the input dataset by a scale factor <em>k</em>, then applies a (smaller) Gaussian where <em>sigma’=s/k</em>, and finally upscales the result by the same scale factor <em>k</em>, the result will approximate a true Gaussian on the original dataset where sigma=s.</p>
 
@@ -793,15 +899,15 @@ Transport Algorithm</a></p>
 
 <p><em>Gaussian blur where sigma=4</em></p>
 
-<p><img src="uploads/2022/3fc179f5ba.png" width="600" height="401" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/3fc179f5ba.png" width="600" height="401" alt="" /></p>
 
 <p><em>Gaussian blur where sigma=16</em></p>
 
-<p><img src="uploads/2022/c9d9705c2e.png" width="600" height="401" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/c9d9705c2e.png" width="600" height="401" alt="" /></p>
 
 <p><em>Gaussian blur where sigma=64</em></p>
 
-<p><img src="uploads/2022/87d800496a.png" width="600" height="401" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/87d800496a.png" width="600" height="401" alt="" /></p>
 
 <h2 id="conclusion">Conclusion:</h2>
 
@@ -830,7 +936,7 @@ Transport Algorithm</a></p>
 
 <p><em>Polygonal diaphragms and f-stop</em></p>
 
-<p><img src="uploads/2022/f558614798.png" width="544" height="512" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/f558614798.png" width="544" height="512" alt="" /></p>
 
 		</div>
 	  </div>
@@ -853,7 +959,7 @@ Transport Algorithm</a></p>
 
 <p><em>Glare patterns</em></p>
 
-<p><img src="uploads/2022/d174a5ac84.png" width="600" height="225" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/d174a5ac84.png" width="600" height="225" alt="" /></p>
 
 <p>Interestingly, the Fourier Transform produces one infinite decaying streak perpendicular to each polygon edge. When the number of edges is even, the streaks overlap in pairs. That is why an hexagonal diaphragm produces 6 streaks, and an heptagonal diaphragm produces 14.</p>
 
@@ -865,13 +971,13 @@ Transport Algorithm</a></p>
 
 <p><em>Cyclic glare pattern</em></p>
 
-<p><img src="uploads/2022/070390a6aa.png" width="600" height="285" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/070390a6aa.png" width="600" height="285" alt="" /></p>
 
 <p><em>Bonus:</em> Here’s some real-life glare I screengrabbed this evening at the European Athletics Championships.</p>
 
 <p><em>Real-life glare</em></p>
 
-<p><img src="uploads/2022/475a218b49.png" width="512" height="300" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/475a218b49.png" width="512" height="300" alt="" /></p>
 
 		</div>
 	  </div>
@@ -890,7 +996,7 @@ Transport Algorithm</a></p>
 
 <p><em>My latest 7000 km</em></p>
 
-<p><img src="uploads/2022/bce75368a2.jpg" width="600" height="384" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/bce75368a2.jpg" width="600" height="384" alt="" /></p>
 
 		</div>
 	  </div>
@@ -911,7 +1017,7 @@ Transport Algorithm</a></p>
 
 <p><em>Even competition between FFT-based vs. separable convolution methods</em></p>
 
-<p><img src="uploads/2022/e0fc16f520.png" width="516" height="516" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/e0fc16f520.png" width="516" height="516" alt="" /></p>
 
 <p>Two conclusions can be made from the above plot, which confirm what was explained in my previous post:</p>
 
@@ -926,7 +1032,7 @@ Transport Algorithm</a></p>
 
 <p><em>Separable convolution with a fixed 11×11 kernel (in orange)</em></p>
 
-<p><img src="uploads/2022/e8ec462e51.png" width="516" height="516" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/e8ec462e51.png" width="516" height="516" alt="" /></p>
 
 <p>A couple more remarks:</p>
 
@@ -988,7 +1094,7 @@ Transport Algorithm</a></p>
 
 <p><em>Heavy glare using the FFT-based method in an HDR image by Paul Debevec</em></p>
 
-<p><img src="uploads/2022/b55d5885bf.gif" width="341" height="512" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/b55d5885bf.gif" width="341" height="512" alt="" /></p>
 
 <p>This image with heavy glare has been output with some ArionFX-related experimental tonemapping code I am working on these days.</p>
 
@@ -1063,7 +1169,7 @@ Transport Algorithm</a></p>
 
 <p><em>1D vertical and horizontal Gaussian convolution</em></p>
 
-<p><img src="uploads/2022/4171094912.png" width="600" height="402" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/4171094912.png" width="600" height="402" alt="" /></p>
 
 <p>Conveniently enough, the most usual convolution kernels (<em>e.g.,</em> Gaussian blur, box blur, …) happen to be separable.</p>
 
@@ -1078,7 +1184,7 @@ Transport Algorithm</a></p>
 
 <p><em>2-step separable vs. brute-force 2D Gaussian convolution</em></p>
 
-<p><img src="uploads/2022/35a6c714ba.png" width="600" height="608" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/35a6c714ba.png" width="600" height="608" alt="" /></p>
 
 <p><em>Pros:</em></p>
 
@@ -1123,11 +1229,11 @@ Transport Algorithm</a></p>
 
 <p><em>Brute-force 2D Gaussian vs. the convolution theorem</em></p>
 
-<p><img src="uploads/2022/71f4742163.png" width="600" height="609" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/71f4742163.png" width="600" height="609" alt="" /></p>
 
 <p><em>Magic</em></p>
 
-<p><img src="uploads/2022/9fd4b3d82e.gif" width="350" height="196" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/9fd4b3d82e.gif" width="350" height="196" alt="" /></p>
 
 <p><em>Pros:</em></p>
 
@@ -1186,7 +1292,7 @@ Transport Algorithm</a></p>
 
 <p><em>Classic PSFs: 1D box, 2D box, 1D Gaussian, 2D Gaussian</em></p>
 
-<p><img src="uploads/2022/abbfbd24d9.png" width="166" height="320" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/abbfbd24d9.png" width="166" height="320" alt="" /></p>
 
 <p>Although this is not a mandatory requirement, the <em>integral</em> of a PSF usually equals 1, so no energy is gained or lost in the process. The above image does not match this requirement for the sake of visualization; the PSFs on the right column have been un-normalized for better visibility. On the other hand, the range of a PSF (how far away from the source point energy is allowed to reach) can be infinite. However, in most practical uses the range is finite, and usually as short as possible.</p>
 
@@ -1196,7 +1302,7 @@ Transport Algorithm</a></p>
 
 <p><em>Classic PSFs applied to an image</em></p>
 
-<p><img src="uploads/2022/12fa4bf752.png" width="243" height="320" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/12fa4bf752.png" width="243" height="320" alt="" /></p>
 
 <p><em>WARNING: Do not confuse this with a convolution. We’re not there yet.</em></p>
 
@@ -1228,11 +1334,11 @@ Transport Algorithm</a></p>
 
 <p><em>Glare applied to an Arion render</em></p>
 
-<p><img src="uploads/2022/d8b32e04d4.gif" width="600" height="355" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/d8b32e04d4.gif" width="600" height="355" alt="" /></p>
 
 <p><em>Typical glare PSF for a 6-blade iris</em></p>
 
-<p><img src="uploads/2022/42dd145d06.png" width="256" height="256" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/42dd145d06.png" width="256" height="256" alt="" /></p>
 
 		</div>
 	  </div>
@@ -1285,7 +1391,7 @@ Transport Algorithm</a></p>
 
 <p><em>Cartesian-to-polar transform</em></p>
 
-<p><img src="uploads/2022/2224df4a0d.png" width="600" height="110" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/2224df4a0d.png" width="600" height="110" alt="" /></p>
 
 <p>Each column in the transformed image is one of the ‘spokes’ that go from the center to one of the pixels at the perimeter in the original image. The length of the largest spoke is half a diagonal, while the perimeter of a WxH image has <code>2·(W+H-2)</code> pixels. So the transformed image is a buffer of dimensions <code>ceil(sqrt(W^2+H^2)/2)</code> and <code>2·(W+H-2)</code>.</p>
 
@@ -1297,7 +1403,7 @@ Transport Algorithm</a></p>
 
 <p><em>Sample 1x1 px area</em></p>
 
-<p><img src="uploads/2022/85af42db00.png" width="461" height="322" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/85af42db00.png" width="461" height="322" alt="" /></p>
 
 <p>Note also that the inverse transform must ‘undo’ the filtering, by splatting contributions to the final image using the same surface overlapping factors.</p>
 
@@ -1314,11 +1420,11 @@ Transport Algorithm</a></p>
 
 <p><em>Circular blur</em></p>
 
-<p><img src="uploads/2022/783f3b179f.gif" width="600" height="337" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/783f3b179f.gif" width="600" height="337" alt="" /></p>
 
 <p><em>Radial blur</em></p>
 
-<p><img src="uploads/2022/f74e2ef315.gif" width="600" height="337" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/f74e2ef315.gif" width="600" height="337" alt="" /></p>
 
 <p>Some bonus remarks:</p>
 
@@ -1330,7 +1436,7 @@ Transport Algorithm</a></p>
 
 <p><em>Lens blur &amp; heavy chromatic aberration</em></p>
 
-<p><img src="uploads/2022/6c6105cdb8.gif" width="600" height="337" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/6c6105cdb8.gif" width="600" height="337" alt="" /></p>
 
 <p>Some more final remarks:</p>
 
@@ -1354,7 +1460,7 @@ Transport Algorithm</a></p>
 
 <p>This is a graph plotted by some simulation code I prototyped way back during the R&amp;D phase (circa 2014). Each wavelength (simplified to RGB in the plot) traverses the media with different stochastic statistics.</p>
 
-<p><img src="uploads/2022/a0dd1496bf.jpg" width="600" height="450" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/a0dd1496bf.jpg" width="600" height="450" alt="" /></p>
 
 		</div>
 	  </div>
@@ -1369,7 +1475,7 @@ Transport Algorithm</a></p>
 		<div class="e-content">
 			 <p><a href="https://en.wikipedia.org/wiki/Legendre_polynomials">Legendre polynomials</a>. Because&hellip; Why not?</p>
 
-<p><img src="uploads/2022/412a9abc3b.png" width="256" height="256" alt="" /></p>
+<p><img src="https://www.brashandplucky.com/uploads/2022/412a9abc3b.png" width="256" height="256" alt="" /></p>
 
 		</div>
 	  </div>
